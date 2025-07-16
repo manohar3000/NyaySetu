@@ -1,51 +1,90 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from google.adk.sessions import DatabaseSessionService
-from google.adk.runners import Runner
-from core_agent.agent import root_agent
-from google.genai.types import Content, Part
+from flask_sqlalchemy import SQLAlchemy
+from flask_bcrypt import Bcrypt
 from dotenv import load_dotenv
+from chat import chat_with_law_agent
+import os
 
 load_dotenv()
 
-async def chat_with_law_agent(user_message):
-    app_name = "my_agent_app"
-    user_id = "user123"
-
-    # Initialize the session service with a database URL
-    db_url = "sqlite:///./my_agent_data.db"
-    session_service = DatabaseSessionService(db_url=db_url)
-    session = await session_service.create_session(
-            app_name=app_name,
-            user_id=user_id
-        )
-    
-    runner = Runner(
-            agent=root_agent,
-            app_name=app_name,
-            session_service=session_service
-        )
-
-    user_message = Content(role='user', parts=[Part(text=user_message)])
-
-    async for event in runner.run_async(
-                            user_id=user_id, 
-                            session_id=session.id, 
-                            new_message=user_message
-                        ):
-        if event.is_final_response():
-            if (
-                event.content
-                and event.content.parts
-                and hasattr(event.content.parts[0], "text")
-                and event.content.parts[0].text
-            ):
-                final_response = event.content.parts[0].text.strip()
-
-    return final_response
-                        
 app = Flask(__name__)
 CORS(app)
+
+# Database Configuration
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key-here')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///nyaysetu.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+bcrypt = Bcrypt(app)
+
+# User Model
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(120), nullable=False)
+    profile_picture = db.Column(db.String(200))
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+
+# Create database tables
+with app.app_context():
+    db.create_all()
+
+@app.route('/auth/signup', methods=['POST'])
+def signup():
+    data = request.json
+    
+    # Check if user already exists
+    if User.query.filter_by(email=data.get('email')).first():
+        return jsonify({'error': 'Email already registered'}), 400
+    
+    if User.query.filter_by(username=data.get('username')).first():
+        return jsonify({'error': 'Username already taken'}), 400
+    
+    # Create new user
+    hashed_password = bcrypt.generate_password_hash(data.get('password')).decode('utf-8')
+    new_user = User(
+        username=data.get('username'),
+        email=data.get('email'),
+        password=hashed_password,
+        profile_picture=data.get('profile_picture', None)
+    )
+    
+    try:
+        db.session.add(new_user)
+        db.session.commit()
+        return jsonify({
+            'message': 'User created successfully',
+            'user': {
+                'id': new_user.id,
+                'username': new_user.username,
+                'email': new_user.email,
+                'profile_picture': new_user.profile_picture
+            }
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to create user'}), 500
+
+@app.route('/auth/login', methods=['POST'])
+def login():
+    data = request.json
+    user = User.query.filter_by(email=data.get('email')).first()
+    
+    if user and bcrypt.check_password_hash(user.password, data.get('password')):
+        return jsonify({
+            'message': 'Login successful',
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'profile_picture': user.profile_picture
+            }
+        }), 200
+    
+    return jsonify({'error': 'Invalid email or password'}), 401
 
 @app.route('/chat', methods=['POST'])
 async def chat():
