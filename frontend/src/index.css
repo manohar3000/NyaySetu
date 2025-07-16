@@ -1,0 +1,227 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #00ffff;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00cccc;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom glow effect */
+.glow {
+  filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.5));
+}
+
+/* Gradient text animation */
+@keyframes gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.gradient-animate {
+  background-size: 400% 400%;
+  animation: gradient 3s ease infinite;
+}
+
+/* Pulse animation for elements */
+@keyframes pulse-glow {
+  0%, 100% { 
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+  }
+  50% { 
+    box-shadow: 0 0 40px rgba(0, 255, 255, 0.8);
+  }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
+
+/* Glassmorphism effect */
+.glass {
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Hide scrollbar for mobile */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    display: none;
+  }
+  
+  body {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Custom focus styles */
+*:focus {
+  outline: 2px solid #00ffff;
+  outline-offset: 2px;
+}
+
+/* Glassmorphism Auth Modal */
+.glassmorphism-auth {
+  background: rgba(20, 30, 40, 0.7);
+  box-shadow: 0 0 40px 8px #00fff7a0;
+  border-radius: 1.5rem;
+  border: 1.5px solid rgba(0,255,255,0.2);
+  backdrop-filter: blur(24px);
+  position: relative;
+}
+
+/* Neon Glow Input */
+.glow-input:focus {
+  box-shadow: 0 0 0 2px #00fff7, 0 0 12px #00fff7a0;
+  border-color: #00fff7;
+}
+
+/* Floating Label */
+.floating-label {
+  position: absolute;
+  left: 1.25rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #67e8f9;
+  pointer-events: none;
+  transition: all 0.2s cubic-bezier(.4,0,.2,1);
+  background: transparent;
+  padding: 0 0.25rem;
+}
+input:focus + .floating-label,
+input:not(:placeholder-shown) + .floating-label {
+  top: 0.25rem;
+  left: 1rem;
+  font-size: 0.85rem;
+  color: #00fff7;
+  background: rgba(20,30,40,0.7);
+}
+
+/* Neon Button */
+.neon-btn {
+  box-shadow: 0 0 8px #00fff7a0;
+  border: 1.5px solid #00fff7;
+}
+.neon-btn:hover, .neon-btn:focus {
+  box-shadow: 0 0 16px #00fff7, 0 0 32px #00fff7a0;
+  border-color: #00fff7;
+}
+
+/* Enhanced Button & Input States */
+button, .btn {
+  transition: box-shadow 0.2s, background 0.2s, color 0.2s, border 0.2s;
+  outline: none;
+}
+button:focus, .btn:focus {
+  box-shadow: 0 0 0 2px #00fff7, 0 0 8px #00fff7a0;
+  border-color: #00fff7;
+}
+button:hover, .btn:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 0 16px #00fff7, 0 0 32px #00fff7a0;
+}
+input:focus, .glow-input:focus {
+  box-shadow: 0 0 0 2px #00fff7, 0 0 12px #00fff7a0;
+  border-color: #00fff7;
+}
+input:hover, .glow-input:hover {
+  border-color: #67e8f9;
+}
+
+/* Ripple Effect for Buttons */
+.ripple {
+  position: relative;
+  overflow: hidden;
+}
+.ripple:after {
+  content: '';
+  display: block;
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  width: 100px;
+  height: 100px;
+  top: 50%;
+  left: 50%;
+  background: rgba(0,255,247,0.25);
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0.7;
+  transition: transform 0.4s, opacity 0.8s;
+}
+.ripple:active:after {
+  transform: translate(-50%, -50%) scale(2.5);
+  opacity: 0;
+  transition: 0s;
+}
+
+/* Spinner */
+.spinner {
+  border: 3px solid #00fff7;
+  border-top: 3px solid #222;
+  border-radius: 50%;
+  width: 1.5em;
+  height: 1.5em;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Alert Message */
+.alert {
+  padding: 1em 1.5em;
+  border-radius: 1em;
+  background: linear-gradient(90deg, #00fff7cc, #7f5cffcc);
+  color: #111;
+  font-weight: 600;
+  box-shadow: 0 2px 16px #00fff7a0;
+  margin-bottom: 1em;
+  animation: alertBounce 0.6s cubic-bezier(.68,-0.55,.27,1.55);
+}
+@keyframes alertBounce {
+  0% { transform: scale(0.8); opacity: 0; }
+  60% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+/* Mobile paddings & tap targets */
+@media (max-width: 640px) {
+  .neon-glass-card {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    padding-top: 1.5rem !important;
+    padding-bottom: 1.5rem !important;
+  }
+  button, .btn {
+    min-height: 48px;
+    font-size: 1.1rem;
+  }
+  input, .glow-input {
+    min-height: 48px;
+    font-size: 1.1rem;
+  }
+}
