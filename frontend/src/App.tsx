@@ -274,6 +274,7 @@ const App = () => {
                   initial="initial"
                   whileHover="hover"
                   whileTap={{ scale: 0.95 }}
+                  onClick={() => setIsChatbotOpen(true)}
                 >
                   <span>Talk to Vaanee</span>
                   <ChevronRight className="w-5 h-5" />
@@ -369,6 +370,7 @@ const App = () => {
                     initial="initial"
                     whileHover="hover"
                     whileTap={{ scale: 0.95 }}
+                    onClick={() => setIsChatbotOpen(true)}
                   >
                     <span>Talk to Vaanee</span>
                     <Bot className="w-5 h-5" />

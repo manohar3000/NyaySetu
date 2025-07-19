@@ -3,9 +3,9 @@ import SocialAuthButtons from './SocialAuthButtons';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, EyeOff } from 'lucide-react';
 import AlertMessage from './AlertMessage';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../contexts/SessionContext';
+import { authApi } from '../../services/api';
 
 interface AuthFormProps {
   tab: 'signin' | 'signup';
@@ -14,22 +14,16 @@ interface AuthFormProps {
 }
 
 const initialFields = {
-  name: '',
+  username: '',
   email: '',
-  phone: '',
   password: '',
   confirmPassword: '',
-  specialization: '',
-  licenseNumber: '',
-  profileImage: null as File | null,
+  profile_picture: null as File | null,
   acceptTerms: false,
-  identifier: '',
 };
 
 const AuthForm: React.FC<AuthFormProps> = ({ tab, role, onAuthSuccess }) => {
   const [fields, setFields] = useState(initialFields);
-  // REMOVE: const [step, setStep] = useState(1); // For 2-step sign in
-  const [showForgot, setShowForgot] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -63,7 +57,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ tab, role, onAuthSuccess }) => {
       setFields(f => ({ ...f, [name]: checked }));
     } else if (type === 'file') {
       const file = files[0];
-      setFields(f => ({ ...f, profileImage: file }));
+      setFields(f => ({ ...f, profile_picture: file }));
       if (file) {
         const reader = new FileReader();
         reader.onloadend = () => setPreview(reader.result as string);
@@ -76,121 +70,77 @@ const AuthForm: React.FC<AuthFormProps> = ({ tab, role, onAuthSuccess }) => {
     }
   };
 
-  // Drag & drop for profile image
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      setFields(f => ({ ...f, profileImage: file }));
-      const reader = new FileReader();
-      reader.onloadend = () => setPreview(reader.result as string);
-      reader.readAsDataURL(file);
-    }
-  };
-
   // Handle submit with backend integration
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setAlert(null);
-    console.log('DEBUG fields:', fields); // Debug log for state
+
     try {
       if (tab === 'signup') {
         // Validate fields
-        if (!fields.name || !fields.email || !fields.phone || !fields.password || !fields.confirmPassword || !fields.acceptTerms) {
+        if (!fields.username || !fields.email || !fields.password || !fields.confirmPassword || !fields.acceptTerms) {
           setAlert({ type: 'error', message: 'Please fill all required fields and accept terms.' });
-          setLoading(false);
           return;
         }
         if (fields.password !== fields.confirmPassword) {
           setAlert({ type: 'error', message: 'Passwords do not match.' });
-          setLoading(false);
           return;
         }
-        // Prepare payload
-        const payload: any = {
-          name: fields.name,
+
+        const response = await authApi.signup({
+          username: fields.username,
           email: fields.email,
-          phone: fields.phone,
           password: fields.password,
-          confirmPassword: fields.confirmPassword,
-          role,
-        };
-        if (role === 'lawyer') {
-          payload.specialization = fields.specialization;
-          payload.licenseNumber = fields.licenseNumber;
-          // Profile image upload: skip for now or add FormData if backend supports
-        }
-        const res = await axios.post('http://localhost:5000/api/auth/register', payload, { withCredentials: true });
-        if (res.data && res.data.token) {
-          localStorage.setItem('vaanee_jwt', res.data.token);
-          localStorage.setItem('vaanee_user_name', res.data.user?.name || fields.name); // Save name
-          localStorage.setItem('vaanee_user_role', res.data.user?.role || role);
-          localStorage.setItem('vaanee_first_login', res.data.user?.firstLogin ? 'true' : 'false');
-          setSession({
-            name: res.data.user?.name || fields.name,
-            role: res.data.user?.role || role,
-            firstLogin: !!res.data.user?.firstLogin,
-            isAuthenticated: true,
-          });
-          setAlert({ type: 'success', message: 'Registration successful! Redirecting...' });
-          setTimeout(() => {
-            navigate('/splash');
-            if (onAuthSuccess) onAuthSuccess();
-          }, 1200);
-        } else {
-          setAlert({ type: 'error', message: res.data.message || 'Registration failed.' });
-        }
+          profile_picture: preview || undefined,
+        });
+
+        setSession({
+          name: response.user.username,
+          role: role,
+          isAuthenticated: true,
+          firstLogin: true,
+        });
+
+        setAlert({ type: 'success', message: 'Registration successful! Redirecting...' });
+        setTimeout(() => {
+          navigate(role === 'lawyer' ? '/dashboard/lawyer' : '/dashboard/user');
+          if (onAuthSuccess) onAuthSuccess();
+        }, 1200);
       } else {
-        // SIGN IN LOGIC (REWRITTEN)
-        if (!fields.identifier || !fields.password) {
-          setAlert({ type: 'error', message: 'Please enter your email/phone and password.' });
-          setLoading(false);
+        // Login
+        if (!fields.email || !fields.password) {
+          setAlert({ type: 'error', message: 'Please enter your email and password.' });
           return;
         }
-        const payload = {
-          emailOrPhone: fields.identifier,
+
+        const response = await authApi.login({
+          email: fields.email,
           password: fields.password,
-        };
-        try {
-          const res = await axios.post('http://localhost:5000/api/auth/login', payload, { withCredentials: true });
-          if (res.data && res.data.token) {
-            localStorage.setItem('vaanee_jwt', res.data.token);
-            localStorage.setItem('vaanee_user_name', res.data.user?.name || '');
-            localStorage.setItem('vaanee_user_role', res.data.user?.role || 'user');
-            localStorage.setItem('vaanee_first_login', res.data.user?.firstLogin ? 'true' : 'false');
-            setSession({
-              name: res.data.user?.name || '',
-              role: res.data.user?.role || 'user',
-              firstLogin: !!res.data.user?.firstLogin,
-              isAuthenticated: true,
-            });
-            setAlert({ type: 'success', message: 'Sign in successful! Redirecting...' });
-            setTimeout(() => {
-              if (onAuthSuccess) onAuthSuccess();
-              navigate('/splash');
-            }, 1200);
-          } else {
-            setAlert({ type: 'error', message: res.data.message || 'Sign in failed.' });
-          }
-        } catch (err: any) {
-          setAlert({ type: 'error', message: err.response?.data?.message || 'An error occurred. Please try again.' });
-        } finally {
-          setLoading(false);
-        }
+        });
+
+        setSession({
+          name: response.user.username,
+          role: role,
+          isAuthenticated: true,
+          firstLogin: false,
+        });
+
+        setAlert({ type: 'success', message: 'Sign in successful! Redirecting...' });
+        setTimeout(() => {
+          navigate(role === 'lawyer' ? '/dashboard/lawyer' : '/dashboard/user');
+          if (onAuthSuccess) onAuthSuccess();
+        }, 1200);
       }
     } catch (err: any) {
-      setAlert({ type: 'error', message: err.response?.data?.message || 'An error occurred. Please try again.' });
+      setAlert({ 
+        type: 'error', 
+        message: err.response?.data?.message || 'An error occurred. Please try again.' 
+      });
     } finally {
       setLoading(false);
     }
   };
-
-  // REMOVE: 2-step sign in logic
-  // const handleNext = (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   setStep(2);
-  // };
 
   // Animated checkbox
   const Checkbox = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
@@ -235,250 +185,118 @@ const AuthForm: React.FC<AuthFormProps> = ({ tab, role, onAuthSuccess }) => {
         <span className="mx-3 text-cyan-200/70 text-sm">or</span>
         <div className="flex-1 h-px bg-cyan-400/30" />
       </div>
-      {/* Sign In */}
-      {tab === 'signin' && (
-        <motion.div key="signin" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }} className="w-full">
-          <div className="relative w-full mb-2">
-            <input
-              type="text"
-              id="identifier"
-              name="identifier"
-              value={fields.identifier}
-              onChange={handleChange}
-              className="w-full px-5 py-3 bg-transparent border border-cyan-400/40 rounded-xl text-white placeholder-transparent focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40 transition-all duration-300 font-poppins shadow-lg glow-input"
-              placeholder=" "
-              autoComplete="username"
-            />
-            <label htmlFor="identifier" className="floating-label">Phone, email or username</label>
-          </div>
-          <div className="relative w-full mb-2">
-            <input
-              type={showPassword ? 'text' : 'password'}
-              id="password"
-              name="password"
-              value={fields.password}
-              onChange={handleChange}
-              className="w-full px-5 py-3 bg-transparent border border-cyan-400/40 rounded-xl text-white placeholder-transparent focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40 transition-all duration-300 font-poppins shadow-lg glow-input pr-12"
-              placeholder=" "
-              autoComplete="current-password"
-            />
-            <label htmlFor="password" className="floating-label">Password</label>
-            <button
-              type="button"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-cyan-300 hover:text-cyan-100 focus:outline-none"
-              onClick={() => setShowPassword(v => !v)}
-              tabIndex={-1}
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
-            >
-              <motion.span initial={{ opacity: 0.7 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </motion.span>
-            </button>
-          </div>
-          <button type="submit" className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-600 text-black font-bold text-lg shadow-lg hover:from-cyan-300 hover:to-cyan-500 transition-all duration-300 font-orbitron mt-2 ripple">{loading ? <span className="spinner" /> : 'Sign In'}</button>
-          <button type="button" className="w-full py-3 rounded-xl bg-transparent text-cyan-200 font-semibold text-base hover:bg-cyan-400/10 transition-all duration-300 border-none mt-2 ripple" onClick={() => setShowForgot(true)}>Forgot Password?</button>
-          <div className="w-full text-center mt-2 text-cyan-200/80 text-sm">
-            Don't have an account? <span className="text-cyan-300 hover:underline cursor-pointer" onClick={() => window.dispatchEvent(new CustomEvent('switch-auth-tab', { detail: 'signup' }))}>Sign up</span>
-          </div>
-        </motion.div>
-      )}
-      {/* Sign Up */}
+
+      {/* Sign Up Form */}
       {tab === 'signup' && (
-        <motion.div key={role} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }} className="w-full">
-          <div className="relative w-full mb-2">
+        <div className="w-full space-y-4">
+          <div className="relative">
             <input
               type="text"
-              id="name"
-              name="name"
-              value={fields.name}
+              name="username"
+              value={fields.username}
               onChange={handleChange}
-              className="w-full px-5 py-3 bg-transparent border border-cyan-400/40 rounded-xl text-white placeholder-transparent focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40 transition-all duration-300 font-poppins shadow-lg glow-input"
-              placeholder=" "
-              autoComplete="name"
+              className="w-full px-5 py-3 bg-transparent border border-cyan-400/40 rounded-xl text-white placeholder-cyan-200/50 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40"
+              placeholder="Username"
+              required
             />
-            <label htmlFor="name" className="floating-label">Name</label>
           </div>
-          <div className="relative w-full mb-2">
+          <div className="relative">
             <input
               type="email"
-              id="email"
               name="email"
               value={fields.email}
               onChange={handleChange}
-              className="w-full px-5 py-3 bg-transparent border border-cyan-400/40 rounded-xl text-white placeholder-transparent focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40 transition-all duration-300 font-poppins shadow-lg glow-input"
-              placeholder=" "
-              autoComplete="email"
+              className="w-full px-5 py-3 bg-transparent border border-cyan-400/40 rounded-xl text-white placeholder-cyan-200/50 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40"
+              placeholder="Email"
+              required
             />
-            <label htmlFor="email" className="floating-label">Email</label>
           </div>
-          <div className="relative w-full mb-2">
+          <div className="relative">
             <input
-              type="tel"
-              id="phone"
-              name="phone"
-              value={fields.phone}
-              onChange={handleChange}
-              className="w-full px-5 py-3 bg-transparent border border-cyan-400/40 rounded-xl text-white placeholder-transparent focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40 transition-all duration-300 font-poppins shadow-lg glow-input"
-              placeholder=" "
-              autoComplete="tel"
-            />
-            <label htmlFor="phone" className="floating-label">Phone</label>
-          </div>
-          <div className="relative w-full mb-2">
-            <input
-              type={showPassword ? 'text' : 'password'}
-              id="password"
+              type={showPassword ? "text" : "password"}
               name="password"
               value={fields.password}
               onChange={handleChange}
-              className="w-full px-5 py-3 bg-transparent border border-cyan-400/40 rounded-xl text-white placeholder-transparent focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40 transition-all duration-300 font-poppins shadow-lg glow-input pr-12"
-              placeholder=" "
-              autoComplete="new-password"
+              className="w-full px-5 py-3 bg-transparent border border-cyan-400/40 rounded-xl text-white placeholder-cyan-200/50 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40"
+              placeholder="Password"
+              required
             />
-            <label htmlFor="password" className="floating-label">Password</label>
             <button
               type="button"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-cyan-300 hover:text-cyan-100 focus:outline-none"
-              onClick={() => setShowPassword(v => !v)}
-              tabIndex={-1}
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-cyan-400/70"
             >
-              <motion.span initial={{ opacity: 0.7 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </motion.span>
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
           </div>
-          <div className="relative w-full mb-2">
+          <div className="relative">
             <input
-              type={showPassword ? 'text' : 'password'}
-              id="confirmPassword"
+              type={showPassword ? "text" : "password"}
               name="confirmPassword"
               value={fields.confirmPassword}
               onChange={handleChange}
-              className="w-full px-5 py-3 bg-transparent border border-cyan-400/40 rounded-xl text-white placeholder-transparent focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40 transition-all duration-300 font-poppins shadow-lg glow-input pr-12"
-              placeholder=" "
-              autoComplete="new-password"
+              className="w-full px-5 py-3 bg-transparent border border-cyan-400/40 rounded-xl text-white placeholder-cyan-200/50 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40"
+              placeholder="Confirm Password"
+              required
             />
-            <label htmlFor="confirmPassword" className="floating-label">Confirm Password</label>
           </div>
-          {/* Password Strength Meter */}
-          <motion.div
-            className="w-full h-2 rounded-full bg-cyan-400/10 mb-2 overflow-hidden"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: fields.password ? 1 : 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <motion.div
-              className={`h-2 rounded-full transition-all duration-300 ${strengthColors[passwordStrength]}`}
-              initial={{ width: 0 }}
-              animate={{ width: `${(passwordStrength / 4) * 100}%` }}
-              transition={{ duration: 0.5, type: 'spring', bounce: 0.3 }}
+          <div className="flex items-center">
+            <Checkbox
+              checked={fields.acceptTerms}
+              onChange={() => setFields(f => ({ ...f, acceptTerms: !f.acceptTerms }))}
             />
-          </motion.div>
-          {/* Lawyer extra fields */}
-          {role === 'lawyer' && (
-            <>
-              <div className="relative w-full mb-2">
-                <input
-                  type="text"
-                  id="specialization"
-                  name="specialization"
-                  value={fields.specialization}
-                  onChange={handleChange}
-                  className="w-full px-5 py-3 bg-transparent border border-cyan-400/40 rounded-xl text-white placeholder-transparent focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40 transition-all duration-300 font-poppins shadow-lg glow-input"
-                  placeholder=" "
-                />
-                <label htmlFor="specialization" className="floating-label">Specialization</label>
-              </div>
-              <div className="relative w-full mb-2">
-                <input
-                  type="text"
-                  id="licenseNumber"
-                  name="licenseNumber"
-                  value={fields.licenseNumber}
-                  onChange={handleChange}
-                  className="w-full px-5 py-3 bg-transparent border border-cyan-400/40 rounded-xl text-white placeholder-transparent focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40 transition-all duration-300 font-poppins shadow-lg glow-input"
-                  placeholder=" "
-                />
-                <label htmlFor="licenseNumber" className="floating-label">License Number</label>
-              </div>
-              {/* Profile Image Upload */}
-              <div
-                className="mb-2 w-full flex flex-col items-center"
-                onDrop={handleDrop}
-                onDragOver={e => e.preventDefault()}
-                style={{ cursor: 'pointer' }}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef}
-                  style={{ display: 'none' }}
-                  onChange={handleChange}
-                />
-                <div className="w-full h-28 flex items-center justify-center border-2 border-dashed border-cyan-400/40 rounded-xl bg-black/30 hover:border-cyan-400 transition-all duration-300">
-                  {preview ? (
-                    <img src={preview} alt="Preview" className="w-20 h-20 rounded-full object-cover" />
-                  ) : (
-                    <span className="text-cyan-400">Drag & drop or click to upload profile image</span>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-          {/* Accept Terms */}
-          <div className="flex items-center mt-2 mb-2">
-            <Checkbox checked={fields.acceptTerms} onChange={() => setFields(f => ({ ...f, acceptTerms: !f.acceptTerms }))} />
-            <span className="text-cyan-200 text-sm">Accept Terms & Conditions</span>
+            <label className="text-cyan-200/70 text-sm">
+              I accept the terms and conditions
+            </label>
           </div>
-          <button type="submit" className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-600 text-black font-bold text-lg shadow-lg hover:from-cyan-300 hover:to-cyan-500 transition-all duration-300 font-orbitron mt-2 ripple">
-            {loading ? <span className="spinner" /> : 'Sign Up'}
-          </button>
-          <div className="w-full text-center mt-2 text-cyan-200/80 text-sm">
-            Already have an account? <span className="text-cyan-300 hover:underline cursor-pointer" onClick={() => window.dispatchEvent(new CustomEvent('switch-auth-tab', { detail: 'signin' }))}>Sign in</span>
-          </div>
-        </motion.div>
+        </div>
       )}
-      {/* Forgot Password Modal */}
-      <AnimatePresence>
-        {showForgot && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-lg"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              className="bg-black/80 rounded-2xl p-8 flex flex-col items-center shadow-2xl border border-cyan-400/30"
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ type: 'spring', bounce: 0.5, duration: 0.5 }}
+
+      {/* Sign In Form */}
+      {tab === 'signin' && (
+        <div className="w-full space-y-4">
+          <div className="relative">
+            <input
+              type="email"
+              name="email"
+              value={fields.email}
+              onChange={handleChange}
+              className="w-full px-5 py-3 bg-transparent border border-cyan-400/40 rounded-xl text-white placeholder-cyan-200/50 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40"
+              placeholder="Email"
+              required
+            />
+          </div>
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              value={fields.password}
+              onChange={handleChange}
+              className="w-full px-5 py-3 bg-transparent border border-cyan-400/40 rounded-xl text-white placeholder-cyan-200/50 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40"
+              placeholder="Password"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-cyan-400/70"
             >
-              <div className="text-cyan-200 text-lg font-bold mb-2">Forgot Password?</div>
-              <div className="mb-4 text-cyan-100 text-sm">Enter your email or phone to reset your password.</div>
-              <input
-                type="text"
-                className="w-full px-4 py-2 mb-4 bg-gray-900/50 border border-cyan-400/30 rounded-xl text-white placeholder-cyan-300 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all duration-300 font-poppins shadow-lg"
-                placeholder="Email or phone"
-              />
-              <button
-                className="w-full py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-600 text-black font-bold shadow-lg hover:from-cyan-300 hover:to-cyan-500 transition-all duration-300 font-orbitron ripple"
-                onClick={() => setShowForgot(false)}
-              >
-                Send Reset Link
-              </button>
-              <button
-                className="mt-4 text-cyan-300 hover:underline text-sm ripple"
-                onClick={() => setShowForgot(false)}
-              >
-                Cancel
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Submit Button */}
+      <button
+        type="submit"
+        disabled={loading}
+        className={`w-full py-3 rounded-xl bg-cyan-400 text-black font-semibold transition-all duration-300 ${
+          loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-cyan-300'
+        }`}
+      >
+        {loading ? 'Processing...' : tab === 'signin' ? 'Sign In' : 'Sign Up'}
+      </button>
     </form>
   );
 };

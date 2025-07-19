@@ -6,6 +6,7 @@ import TypingIndicator from './TypingIndicator';
 import VaaneeAvatar from './VaaneeAvatar';
 import LaunchScreen from './LaunchScreen';
 import NyayaLogSidebar from './NyayaLogSidebar';
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
 interface Message {
   id: string;
@@ -31,12 +32,37 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isVoiceMode, setIsVoiceMode] = useState(false);
-  const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showLaunch, setShowLaunch] = useState(true);
+  const [transcription, setTranscription] = useState('');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Speech recognition setup
+  const { isListening, toggleListening, isSupported } = useSpeechRecognition({
+    onResult: (text) => {
+      setTranscription(text);
+      if (text.trim()) {
+        handleSendMessage(text.trim());
+      }
+    },
+    onError: (error) => {
+      console.error('Speech recognition error:', error);
+      // Show error message to user
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        text: error,
+        isUser: false,
+        timestamp: new Date(),
+      }]);
+      
+      // Disable voice mode if there's a critical error
+      if (error.includes('not supported') || error.includes('permission') || error.includes('microphone')) {
+        setIsVoiceMode(false);
+      }
+    },
+  });
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -64,6 +90,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
 
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
+    setTranscription('');
     setIsTyping(true);
 
     try {
@@ -89,6 +116,14 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
       };
 
       setMessages(prev => [...prev, aiMessage]);
+
+      // Optional: Text-to-Speech for AI responses
+      if (isVoiceMode && 'speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(data.response);
+        utterance.onstart = () => setIsSpeaking(true);
+        utterance.onend = () => setIsSpeaking(false);
+        window.speechSynthesis.speak(utterance);
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       
@@ -111,23 +146,52 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
   };
 
   const toggleVoiceMode = () => {
+    if (!isSupported) {
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        text: "Voice mode is not supported in your browser. Please use Chrome, Edge, or Safari.",
+        isUser: false,
+        timestamp: new Date(),
+      }]);
+      return;
+    }
+
     setIsVoiceMode(!isVoiceMode);
     if (isListening) {
-      setIsListening(false);
+      toggleListening();
+    }
+    // Cancel any ongoing speech when turning off voice mode
+    if (isVoiceMode && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
+
+    // Show feedback message when voice mode is enabled
+    if (!isVoiceMode) {
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        text: "Voice mode enabled. Click the microphone button or press space to start speaking.",
+        isUser: false,
+        timestamp: new Date(),
+      }]);
     }
   };
 
-  const toggleListening = () => {
-    setIsListening(!isListening);
-    // In a real implementation, this would start/stop speech recognition
-    if (!isListening) {
-      // Simulate listening for 3 seconds
-      setTimeout(() => {
-        setIsListening(false);
-        handleSendMessage("This is a voice message converted to text");
-      }, 3000);
-    }
-  };
+  // Add keyboard shortcut for voice input
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (!isOpen || !isVoiceMode) return;
+      
+      // Space bar to toggle listening
+      if (e.code === 'Space' && !isTyping) {
+        e.preventDefault();
+        toggleListening();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [isOpen, isVoiceMode, isTyping, toggleListening]);
 
   return (
     <AnimatePresence>
@@ -149,107 +213,120 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
                 <NyayaLogSidebar />
                 {/* Chat Area */}
                 <div className="flex-1 flex flex-col bg-black/40 backdrop-blur-lg relative">
-            {/* Header */}
-            <motion.div
-              className="flex items-center justify-between p-4 border-b border-cyan-400/20 bg-gradient-to-r from-black to-gray-900"
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <div className="flex items-center space-x-3">
+                  {/* Header */}
+                  <motion.div
+                    className="flex items-center justify-between p-4 border-b border-cyan-400/20 bg-gradient-to-r from-black to-gray-900"
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-cyan-600 rounded-full flex items-center justify-center shadow-lg animate-pulse">
                         <span className="text-black font-bold font-orbitron text-2xl">V</span>
-                </div>
-                <div>
+                      </div>
+                      <div>
                         <h3 className="font-semibold text-white font-orbitron text-lg">Vaanee</h3>
                         <p className="text-xs text-cyan-400 font-poppins">AI Legal Assistant</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <motion.button
-                  onClick={toggleVoiceMode}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <motion.button
+                        onClick={toggleVoiceMode}
                         className={`p-2 rounded-full transition-all duration-300 shadow-lg border border-cyan-400/30 ${isVoiceMode ? 'bg-cyan-400 text-black' : 'bg-gray-800 text-cyan-400 hover:bg-gray-700'}`}
                         whileHover={{ scale: 1.1, boxShadow: '0 0 16px #00ffff' }}
-                  whileTap={{ scale: 0.9 }}
-                  title="Toggle Voice Mode"
-                >
-                  {isVoiceMode ? <PhoneOff className="w-4 h-4" /> : <Phone className="w-4 h-4" />}
-                </motion.button>
-                <motion.button
-                  onClick={onClose}
+                        whileTap={{ scale: 0.9 }}
+                        title="Toggle Voice Mode"
+                      >
+                        {isVoiceMode ? <PhoneOff className="w-4 h-4" /> : <Phone className="w-4 h-4" />}
+                      </motion.button>
+                      <motion.button
+                        onClick={onClose}
                         className="p-2 rounded-full bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white transition-all duration-300 shadow-lg"
                         whileHover={{ scale: 1.1, rotate: 90, boxShadow: '0 0 16px #00ffff' }}
-                  whileTap={{ scale: 0.9 }}
-                >
-                  <X className="w-4 h-4" />
-                </motion.button>
-              </div>
-            </motion.div>
-            {/* Voice Mode Avatar */}
-            {isVoiceMode && (
-              <VaaneeAvatar
-                isListening={isListening}
-                isSpeaking={isSpeaking}
-                isVoiceMode={isVoiceMode}
-                onToggleListening={toggleListening}
-              />
-            )}
-            {/* Messages Container */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-cyan-400/20 scrollbar-track-transparent">
-              <AnimatePresence>
-                {messages.map((message, index) => (
-                  <ChatMessage
-                    key={message.id}
-                    message={message}
-                    index={index}
-                  />
-                ))}
-                {isTyping && <TypingIndicator />}
-              </AnimatePresence>
-              <div ref={messagesEndRef} />
-            </div>
-            {/* Input Area */}
-            {!isVoiceMode && (
-              <motion.div
-                className="p-4 border-t border-cyan-400/20 bg-gradient-to-r from-black to-gray-900"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-              >
-                <form onSubmit={handleSubmit} className="flex items-center space-x-2">
-                  <div className="flex-1 relative">
-                    <input
-                      ref={inputRef}
-                      type="text"
-                      value={inputText}
-                      onChange={(e) => setInputText(e.target.value)}
-                      placeholder="Ask Vaanee anything about law..."
-                            className="w-full px-4 py-3 bg-gray-900/50 border border-cyan-400/30 rounded-xl text-white placeholder-cyan-300 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all duration-300 font-poppins shadow-lg"
-                      disabled={isTyping}
+                        whileTap={{ scale: 0.9 }}
+                      >
+                        <X className="w-4 h-4" />
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                  {/* Voice Mode Avatar */}
+                  {isVoiceMode && (
+                    <VaaneeAvatar
+                      isListening={isListening}
+                      isSpeaking={isSpeaking}
+                      isVoiceMode={isVoiceMode}
+                      onToggleListening={toggleListening}
                     />
-                  </div>
-                  <motion.button
-                    type="button"
-                    onClick={toggleListening}
-                          className={`p-3 rounded-xl transition-all duration-300 shadow-lg border border-cyan-400/30 ${isListening ? 'bg-red-500 text-white' : 'bg-gray-800 text-cyan-400 hover:bg-gray-700'}`}
-                          whileHover={{ scale: 1.05, boxShadow: '0 0 16px #00ffff' }}
-                    whileTap={{ scale: 0.95 }}
-                    title="Voice Input"
-                  >
-                          {isListening ? <MicOff className="w-5 h-5 animate-pulse" /> : <Mic className="w-5 h-5" />}
-                  </motion.button>
-                  <motion.button
-                    type="submit"
-                    disabled={!inputText.trim() || isTyping}
-                          className="p-3 bg-gradient-to-r from-cyan-400 to-cyan-600 text-black rounded-xl hover:from-cyan-300 hover:to-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 font-orbitron shadow-lg border border-cyan-400/30"
-                          whileHover={{ scale: 1.05, boxShadow: '0 0 16px #00ffff' }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <Send className="w-5 h-5" />
-                  </motion.button>
-                </form>
-              </motion.div>
                   )}
+                  {/* Voice Mode Indicator */}
+                  {isVoiceMode && (
+                    <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-cyan-400/20 text-cyan-400 px-4 py-2 rounded-full text-sm font-medium z-10">
+                      {isListening ? 'Listening...' : 'Voice Mode Active'}
+                    </div>
+                  )}
+                  {/* Messages Container */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-cyan-400/20 scrollbar-track-transparent">
+                    <AnimatePresence>
+                      {messages.map((message, index) => (
+                        <ChatMessage
+                          key={message.id}
+                          message={message}
+                          index={index}
+                        />
+                      ))}
+                      {isTyping && <TypingIndicator />}
+                    </AnimatePresence>
+                    <div ref={messagesEndRef} />
+                  </div>
+                  {/* Input Area */}
+                  <motion.div
+                    className="p-4 border-t border-cyan-400/20 bg-gradient-to-r from-black to-gray-900"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                  >
+                    <form onSubmit={handleSubmit} className="flex items-center space-x-2">
+                      <div className="flex-1 relative">
+                        <input
+                          ref={inputRef}
+                          type="text"
+                          value={isListening ? transcription : inputText}
+                          onChange={(e) => setInputText(e.target.value)}
+                          placeholder={isListening ? 'Listening...' : 'Ask Vaanee anything about law...'}
+                          className="w-full px-4 py-3 bg-gray-900/50 border border-cyan-400/30 rounded-xl text-white placeholder-cyan-300 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all duration-300 font-poppins shadow-lg"
+                          disabled={isTyping || isListening}
+                        />
+                        {isListening && (
+                          <motion.div
+                            className="absolute right-3 top-1/2 -translate-y-1/2"
+                            animate={{ scale: [1, 1.2, 1] }}
+                            transition={{ repeat: Infinity, duration: 1 }}
+                          >
+                            <span className="text-cyan-400">🎤</span>
+                          </motion.div>
+                        )}
+                      </div>
+                      <motion.button
+                        type="button"
+                        onClick={toggleListening}
+                        className={`p-3 rounded-xl transition-all duration-300 shadow-lg border border-cyan-400/30 ${isListening ? 'bg-red-500 text-white' : 'bg-gray-800 text-cyan-400 hover:bg-gray-700'}`}
+                        whileHover={{ scale: 1.05, boxShadow: '0 0 16px #00ffff' }}
+                        whileTap={{ scale: 0.95 }}
+                        title="Voice Input"
+                      >
+                        {isListening ? <MicOff className="w-5 h-5 animate-pulse" /> : <Mic className="w-5 h-5" />}
+                      </motion.button>
+                      <motion.button
+                        type="submit"
+                        disabled={(!inputText.trim() && !transcription.trim()) || isTyping || isListening}
+                        className="p-3 bg-gradient-to-r from-cyan-400 to-cyan-600 text-black rounded-xl hover:from-cyan-300 hover:to-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 font-orbitron shadow-lg border border-cyan-400/30"
+                        whileHover={{ scale: 1.05, boxShadow: '0 0 16px #00ffff' }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        <Send className="w-5 h-5" />
+                      </motion.button>
+                    </form>
+                  </motion.div>
                 </div>
               </>
             )}
