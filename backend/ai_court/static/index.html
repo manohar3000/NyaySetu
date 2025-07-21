@@ -1,0 +1,4856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LegalAI - Advanced Legal Debate Assistant</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #2a2a2a;
+            --bg-sidebar: #111111;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b0b0;
+            --text-muted: #666666;
+            --accent-primary: #3b82f6;
+            --accent-secondary: #1d4ed8;
+            --accent-success: #10b981;
+            --accent-warning: #f59e0b;
+            --accent-danger: #ef4444;
+            --border-color: #333333;
+            --shadow-light: 0 2px 8px rgba(0, 0, 0, 0.3);
+            --shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.4);
+            --shadow-heavy: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+            font-weight: 400;
+            line-height: 1.6;
+        }
+
+        /* Welcome Screen Styles */
+        .welcome-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            opacity: 1;
+            transition: opacity 1s ease-in-out;
+        }
+
+        .welcome-overlay.fade-out {
+            opacity: 0;
+        }
+
+        .welcome-overlay.hidden {
+            display: none;
+        }
+
+        .welcome-logo {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            color: white;
+            margin-bottom: 30px;
+            animation: logoPulse 2s ease-in-out infinite, logoFloat 3s ease-in-out infinite;
+            box-shadow: 0 0 50px rgba(59, 130, 246, 0.5);
+            position: relative;
+        }
+
+        .welcome-logo::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            border: 2px solid transparent;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)) border-box;
+            -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: destination-out;
+            mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+            mask-composite: exclude;
+            animation: logoRing 2s ease-in-out infinite;
+        }
+
+        .welcome-logo::after {
+            content: '';
+            position: absolute;
+            top: -20px;
+            left: -20px;
+            right: -20px;
+            bottom: -20px;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 50%;
+            animation: logoRing2 3s ease-in-out infinite;
+        }
+
+        .welcome-text {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .welcome-title {
+            font-size: 36px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+            animation: titleGlow 2s ease-in-out infinite;
+        }
+
+        .welcome-subtitle {
+            font-size: 18px;
+            color: var(--text-secondary);
+            font-weight: 400;
+            animation: subtitleFade 2s ease-in-out infinite;
+        }
+
+        .welcome-court-name {
+            font-size: 24px;
+            color: var(--text-primary);
+            font-weight: 600;
+            margin-top: 15px;
+            animation: courtNameSlide 1.5s ease-in-out;
+        }
+
+        .loading-dots {
+            display: flex;
+            gap: 8px;
+            margin-top: 30px;
+        }
+
+        .loading-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            animation: loadingDot 1.4s ease-in-out infinite;
+        }
+
+        .loading-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .loading-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        .skip-welcome-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--text-secondary);
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(10px);
+        }
+
+        .skip-welcome-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: var(--text-primary);
+            transform: translateY(-2px);
+        }
+
+        /* Welcome Screen Animations */
+        @keyframes logoPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        @keyframes logoRing {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.3); opacity: 0; }
+        }
+
+        @keyframes logoRing2 {
+            0% { transform: scale(1); opacity: 0.5; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+
+        @keyframes titleGlow {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.2); }
+        }
+
+        @keyframes subtitleFade {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+
+        @keyframes courtNameSlide {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes loadingDot {
+            0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: 280px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1000;
+        }
+
+        .sidebar.collapsed {
+            transform: translateX(-100%);
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .sidebar-toggle {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .sidebar-toggle:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 16px 0;
+            overflow-y: auto;
+        }
+
+        .nav-section {
+            margin-bottom: 24px;
+        }
+
+        .nav-section-title {
+            padding: 0 20px 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: all 0.2s;
+            cursor: pointer;
+            border-radius: 0;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--accent-primary);
+            color: var(--text-primary);
+        }
+
+        .nav-item i {
+            width: 20px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-primary);
+        }
+
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+        }
+
+        .top-bar-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .sidebar-toggle-mobile {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .search-box {
+            position: relative;
+            width: 300px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px 16px 10px 40px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .search-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        .top-bar-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .action-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .action-btn:hover {
+            background: var(--accent-primary);
+            color: var(--text-primary);
+            border-color: var(--accent-primary);
+        }
+
+        .action-btn.primary {
+            background: var(--accent-primary);
+            color: var(--text-primary);
+            border-color: var(--accent-primary);
+        }
+
+        /* Voice Controls */
+        .voice-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .voice-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .voice-btn:hover {
+            background: var(--accent-primary);
+            color: var(--text-primary);
+            border-color: var(--accent-primary);
+        }
+
+        .voice-btn.active {
+            background: var(--accent-success);
+            color: var(--text-primary);
+            border-color: var(--accent-success);
+        }
+
+        .voice-btn.recording {
+            background: var(--accent-danger);
+            color: var(--text-primary);
+            border-color: var(--accent-danger);
+            animation: pulse 1s infinite;
+        }
+
+        .voice-btn.active {
+            background: var(--accent-success);
+            color: var(--text-primary);
+            border-color: var(--accent-success);
+            animation: pulse 2s infinite;
+        }
+
+        .voice-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        /* Courtroom atmosphere */
+        .courtroom-active {
+            background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+        }
+
+        .courtroom-active .courtroom-status {
+            background: linear-gradient(90deg, #10b981, #059669);
+            color: white;
+            font-weight: 600;
+            padding: 8px 16px;
+            border-radius: 20px;
+            animation: courtroomPulse 2s infinite;
+        }
+
+        .courtroom-status.active {
+            background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+            animation: courtroomPulse 1s infinite;
+        }
+
+        @keyframes courtroomPulse {
+            0%, 100% { 
+                box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+                transform: scale(1);
+            }
+            50% { 
+                box-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
+                transform: scale(1.02);
+            }
+        }
+
+        /* Voice activity indicator */
+        .voice-activity {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(16, 185, 129, 0.2);
+            border: 2px solid #10b981;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            animation: voicePulse 1s infinite;
+            z-index: 1000;
+        }
+
+        .voice-activity.active {
+            display: flex;
+        }
+
+        @keyframes voicePulse {
+            0%, 100% { 
+                transform: scale(1);
+                opacity: 0.7;
+            }
+            50% { 
+                transform: scale(1.1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .audio-player {
+            width: 100%;
+            margin-top: 8px;
+        }
+
+        .audio-player audio {
+            width: 100%;
+            height: 32px;
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* Chat Area */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            scroll-behavior: smooth;
+        }
+
+        .message {
+            margin-bottom: 24px;
+            display: flex;
+            gap: 16px;
+            animation: fadeInUp 0.3s ease-out;
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            flex-shrink: 0;
+            font-size: 18px;
+            border: 2px solid transparent;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .message.user .message-avatar {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: var(--text-primary);
+            border-color: #60a5fa;
+        }
+
+        .message.assistant .message-avatar {
+            background: linear-gradient(135deg, var(--accent-success), #059669);
+            color: var(--text-primary);
+            border-color: #34d399;
+        }
+
+        .message.judge .message-avatar {
+            background: linear-gradient(135deg, var(--accent-warning), #d97706);
+            color: var(--text-primary);
+            border-color: #fbbf24;
+        }
+
+        .message-content {
+            flex: 1;
+            max-width: 70%;
+        }
+
+        .message.user .message-content {
+            text-align: right;
+        }
+
+        .message-bubble {
+            background: var(--bg-tertiary);
+            padding: 18px 22px;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            position: relative;
+            word-wrap: break-word;
+            box-shadow: var(--shadow-light);
+            backdrop-filter: blur(10px);
+        }
+
+        .message.user .message-bubble {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border-color: #3b82f6;
+            color: white;
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+        }
+
+        .message.assistant .message-bubble {
+            background: linear-gradient(135deg, #10b981, #059669);
+            border-color: #10b981;
+            color: white;
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .message.judge .message-bubble {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            border-color: #f59e0b;
+            color: white;
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+            border-left: 4px solid #fbbf24;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .message.user .message-header {
+            justify-content: flex-end;
+            color: #e0e7ff;
+        }
+
+        .message.assistant .message-header {
+            color: #d1fae5;
+        }
+
+        .message.judge .message-header {
+            color: #fef3c7;
+        }
+
+        .message-role {
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-size: 12px;
+        }
+
+        .message-time {
+            opacity: 0.8;
+            font-weight: 500;
+            font-size: 11px;
+        }
+
+        .message-text {
+            line-height: 1.7;
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 15px;
+            letter-spacing: 0.01em;
+        }
+
+        .message.user .message-text {
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .message.assistant .message-text {
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .message.judge .message-text {
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 16px;
+            letter-spacing: 0.02em;
+        }
+
+        /* Enhanced styling for legal terms and citations */
+        .message-text strong,
+        .message-text b {
+            font-weight: 700;
+            color: inherit;
+        }
+
+        .message-text em {
+            font-style: italic;
+            font-weight: 500;
+        }
+
+        /* Special styling for legal citations */
+        .message-text .citation {
+            font-family: 'Courier New', monospace;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        /* Styling for judicial language */
+        .message.judge .message-text {
+            font-family: 'Georgia', 'Times New Roman', serif;
+        }
+
+        .message.judge .message-text::before {
+            content: "⚖️ ";
+            margin-right: 4px;
+        }
+
+        /* Markdown formatting support */
+        .message-text strong,
+        .message-text b {
+            font-weight: 700;
+            color: inherit;
+        }
+
+        .message-text em,
+        .message-text i {
+            font-style: italic;
+            font-weight: 500;
+        }
+
+        .message-text code {
+            font-family: 'Courier New', 'Monaco', 'Consolas', monospace;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            color: inherit;
+        }
+
+        /* Enhanced paragraph spacing */
+        .message-text p {
+            margin: 0 0 12px 0;
+        }
+
+        .message-text p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* List styling */
+        .message-text ul,
+        .message-text ol {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+
+        .message-text li {
+            margin: 4px 0;
+        }
+
+        .message-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .message:hover .message-actions {
+            opacity: 1;
+        }
+
+        .message.user .message-actions {
+            justify-content: flex-end;
+        }
+
+        .action-icon {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .action-icon:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        /* Enhanced Input Area - Professional Legal UI */
+        .input-container {
+            padding: 20px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            position: relative;
+        }
+
+        .input-wrapper {
+            position: relative;
+            background: var(--bg-tertiary);
+            border: 2px solid var(--border-color);
+            border-radius: 16px;
+            padding: 6px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: var(--shadow-light);
+            margin-bottom: 8px; /* Reduced spacing */
+        }
+
+        .input-wrapper:focus-within {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15), var(--shadow-medium);
+            transform: translateY(-1px);
+        }
+
+        .chat-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            padding: 18px 20px; /* Slightly reduced padding */
+            color: var(--text-primary);
+            font-size: 16px;
+            resize: none;
+            outline: none;
+            min-height: 28px;
+            max-height: 150px;
+            font-weight: 500;
+            line-height: 1.7;
+            letter-spacing: 0.02em;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .chat-input::placeholder {
+            color: var(--text-muted);
+            font-weight: 400;
+            font-style: italic;
+        }
+
+        /* Auto-save indicator */
+        .auto-save-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .auto-save-indicator.visible {
+            opacity: 1;
+        }
+
+        .auto-save-indicator.saving {
+            color: var(--accent-warning);
+        }
+
+        .auto-save-indicator.saved {
+            color: var(--accent-success);
+        }
+
+        .auto-save-indicator i {
+            font-size: 10px;
+        }
+
+        .input-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px 12px; /* Reduced padding */
+            margin-top: 4px; /* Reduced margin */
+        }
+
+        .input-actions-left {
+            display: flex;
+            align-items: center;
+            gap: 8px; /* Reduced gap */
+        }
+
+        .input-actions-right {
+            display: flex;
+            align-items: center;
+            gap: 8px; /* Reduced gap */
+        }
+
+        .input-btn {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 8px 12px; /* Reduced padding */
+            border-radius: 8px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px; /* Slightly smaller */
+            font-weight: 500;
+            min-width: 90px; /* Reduced width */
+            justify-content: center;
+            position: relative; /* For tooltips */
+        }
+
+        .input-btn:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-color: var(--accent-primary);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-light);
+        }
+
+        .input-btn:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+
+        .input-btn.active {
+            background: var(--accent-primary);
+            color: var(--text-primary);
+            border-color: var(--accent-primary);
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+        }
+
+        .input-btn i {
+            font-size: 14px; /* Slightly smaller */
+        }
+
+        /* Tooltips */
+        .input-btn[data-tooltip] {
+            position: relative;
+        }
+
+        .input-btn[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            white-space: nowrap;
+            z-index: 1000;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-medium);
+            margin-bottom: 4px;
+        }
+
+        .input-btn[data-tooltip]:hover::before {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 4px solid transparent;
+            border-top-color: var(--bg-primary);
+            margin-bottom: 0;
+        }
+
+        /* Enhanced Send Button */
+        .send-btn {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: var(--text-primary);
+            border: none;
+            padding: 10px 20px; /* Reduced padding */
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 700;
+            font-size: 14px; /* Slightly smaller */
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 110px; /* Reduced width */
+            justify-content: center;
+        }
+
+        .send-btn:hover {
+            background: linear-gradient(135deg, var(--accent-secondary), #1e40af);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
+        }
+
+        .send-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+        }
+
+        .send-btn:disabled {
+            background: var(--text-muted);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* AI Suggest Button */
+        .ai-suggest-btn {
+            background: linear-gradient(135deg, var(--accent-success), #059669);
+            color: var(--text-primary);
+            border: none;
+            padding: 10px 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 600;
+            font-size: 13px;
+            letter-spacing: 0.3px;
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 100px;
+            justify-content: center;
+        }
+
+        .ai-suggest-btn:hover {
+            background: linear-gradient(135deg, #059669, #047857);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
+        }
+
+        .ai-suggest-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+        }
+
+        .ai-suggest-btn:disabled {
+            background: var(--text-muted);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Voice Recording Animation */
+        .voice-btn {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .voice-btn.recording {
+            background: var(--accent-danger) !important;
+            color: white !important;
+            border-color: var(--accent-danger) !important;
+            animation: pulse-recording 1.5s infinite;
+        }
+
+        .voice-btn.recording::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            animation: ripple 1.5s infinite;
+        }
+
+        .voice-btn.recording i {
+            animation: microphone-pulse 0.8s infinite;
+        }
+
+        /* Voice recording animations */
+        @keyframes pulse-recording {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            }
+            50% {
+                box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+            }
+        }
+
+        @keyframes ripple {
+            0% {
+                width: 0;
+                height: 0;
+                opacity: 1;
+            }
+            100% {
+                width: 40px;
+                height: 40px;
+                opacity: 0;
+            }
+        }
+
+        @keyframes microphone-pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.2);
+            }
+        }
+
+        /* Legal Tools - Enhanced */
+        .legal-tools {
+            display: flex;
+            gap: 6px; /* Reduced gap */
+            margin-bottom: 10px; /* Reduced margin */
+            flex-wrap: wrap;
+        }
+
+        .legal-tool-btn {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 6px 10px; /* Reduced padding */
+            border-radius: 6px;
+            font-size: 11px; /* Smaller font */
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            position: relative; /* For tooltips */
+        }
+
+        .legal-tool-btn:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-color: var(--accent-primary);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-light);
+        }
+
+        .legal-tool-btn:active {
+            transform: translateY(0);
+        }
+
+        .legal-tool-btn.active {
+            background: var(--accent-primary);
+            color: var(--text-primary);
+            border-color: var(--accent-primary);
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+        }
+
+        /* Legal tool tooltips */
+        .legal-tool-btn[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            white-space: nowrap;
+            z-index: 1000;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-medium);
+            margin-bottom: 4px;
+        }
+
+        .legal-tool-btn[data-tooltip]:hover::before {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 4px solid transparent;
+            border-top-color: var(--bg-primary);
+            margin-bottom: 0;
+        }
+
+        /* Legal Courtroom Specific Features */
+        .courtroom-status {
+            position: absolute;
+            top: -12px;
+            left: 24px;
+            background: var(--bg-secondary);
+            padding: 4px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent-success);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .courtroom-status::before {
+            content: "⚖️";
+            font-size: 14px;
+        }
+
+        /* Voice Court Controls */
+        .voice-court-controls {
+            position: absolute;
+            top: -12px;
+            right: 24px;
+            background: var(--bg-secondary);
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1px solid var(--accent-warning);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: var(--shadow-light);
+            animation: slideInRight 0.3s ease-out;
+        }
+
+        .voice-control-info {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--accent-warning);
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .disable-voice-btn {
+            background: var(--accent-danger);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .disable-voice-btn:hover {
+            background: #dc2626;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+        }
+
+        .keyboard-hint {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--text-muted);
+            font-size: 10px;
+            font-weight: 500;
+        }
+
+        /* Voice Input Indicator */
+        .voice-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--accent-primary);
+            font-size: 11px;
+            font-weight: 500;
+            margin-top: 4px;
+            padding: 2px 6px;
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: 8px;
+            width: fit-content;
+        }
+
+        .voice-indicator i {
+            font-size: 10px;
+        }
+
+        .legal-tools {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .legal-tool-btn {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .legal-tool-btn:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-color: var(--accent-primary);
+        }
+
+        .legal-tool-btn.active {
+            background: var(--accent-primary);
+            color: var(--text-primary);
+            border-color: var(--accent-primary);
+        }
+
+        /* Enhanced Typing Indicator for Legal Context */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 20px 24px;
+            background: var(--bg-tertiary);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            width: fit-content;
+            box-shadow: var(--shadow-light);
+            margin: 16px 0;
+        }
+
+        .typing-indicator::before {
+            content: "⚖️";
+            font-size: 18px;
+            color: var(--accent-warning);
+        }
+
+        .typing-text {
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-warning);
+            border-radius: 50%;
+            animation: pulse 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 6px;
+            padding: 18px 22px;
+            background: var(--bg-tertiary);
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            width: fit-content;
+            box-shadow: var(--shadow-light);
+        }
+
+        .typing-dot {
+            width: 10px;
+            height: 10px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            animation: pulse 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                height: 100vh;
+                z-index: 1000;
+            }
+
+            .sidebar-toggle-mobile {
+                display: block;
+            }
+
+            .search-box {
+                display: none;
+            }
+
+            .message-content {
+                max-width: 85%;
+            }
+        }
+
+        /* Enhanced scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* Enhanced focus states */
+        .chat-input:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+
+        /* Enhanced button hover effects */
+        .action-btn:hover,
+        .input-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Enhanced message animations */
+        .message {
+            animation: fadeInUp 0.4s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Loading States */
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        /* File Upload */
+        .file-upload-area {
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin: 16px 0;
+            transition: all 0.2s;
+        }
+
+        .file-upload-area:hover {
+            border-color: var(--accent-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .file-upload-area.dragover {
+            border-color: var(--accent-primary);
+            background: var(--bg-tertiary);
+        }
+
+        /* Enhanced Case Cards - Professional Legal UI */
+        .case-management {
+            padding: 20px;
+        }
+
+        .case-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .case-header h3 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .case-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .case-search {
+            position: relative;
+            width: 300px;
+        }
+
+        .case-search input {
+            width: 100%;
+            padding: 8px 12px 8px 36px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .case-search i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .case-filters {
+            display: flex;
+            gap: 8px;
+        }
+
+        .filter-btn {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-color: var(--accent-primary);
+        }
+
+        .filter-btn.active {
+            background: var(--accent-primary);
+            color: var(--text-primary);
+            border-color: var(--accent-primary);
+        }
+
+        .case-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        .case-card {
+            background: linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary));
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            animation: slideInUp 0.4s ease-out;
+        }
+
+        .case-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .case-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border-color: var(--accent-primary);
+        }
+
+        .case-card:hover::before {
+            opacity: 1;
+        }
+
+        .case-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .case-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0 0 4px 0;
+            line-height: 1.3;
+        }
+
+        .case-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin: 0;
+            font-weight: 500;
+        }
+
+        .case-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .case-status.active {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+
+        .case-status.paused {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+        }
+
+        .case-status.closed {
+            background: linear-gradient(135deg, #6b7280, #4b5563);
+            color: white;
+        }
+
+        .case-meta {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .meta-item i {
+            width: 16px;
+            color: var(--accent-primary);
+            font-size: 14px;
+        }
+
+        .case-progress {
+            margin-bottom: 16px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: var(--bg-primary);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            text-align: right;
+        }
+
+        .case-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+        }
+
+        .action-btn:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-color: var(--accent-primary);
+            transform: translateY(-1px);
+        }
+
+        .action-btn.primary {
+            background: var(--accent-primary);
+            color: var(--text-primary);
+            border-color: var(--accent-primary);
+        }
+
+        .action-btn.primary:hover {
+            background: var(--accent-secondary);
+            transform: translateY(-1px);
+        }
+
+        .action-btn.danger {
+            background: var(--accent-danger);
+            color: white;
+            border-color: var(--accent-danger);
+        }
+
+        .action-btn.danger:hover {
+            background: #dc2626;
+            transform: translateY(-1px);
+        }
+
+        .case-tags {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .case-tag {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--accent-primary);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .case-stats {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            padding: 12px;
+            background: var(--bg-primary);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .stat-item i {
+            color: var(--accent-warning);
+            font-size: 14px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state i {
+            font-size: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state h4 {
+            margin: 0 0 8px 0;
+            color: var(--text-secondary);
+        }
+
+        .empty-state p {
+            margin: 0;
+            font-size: 14px;
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .case-card {
+            animation: slideInUp 0.4s ease-out;
+        }
+
+        /* Context-Aware Input Area */
+        .input-container {
+            padding: 20px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .input-container.hidden {
+            transform: translateY(100%);
+            opacity: 0;
+            pointer-events: none;
+            height: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .input-container.minimized {
+            padding: 12px 20px;
+        }
+
+        .input-container.minimized .input-wrapper {
+            display: none;
+        }
+
+        .input-container.minimized .legal-tools {
+            display: none;
+        }
+
+        .input-container.minimized .input-actions {
+            justify-content: center;
+        }
+
+        .input-container.minimized .input-actions-left,
+        .input-container.minimized .input-actions-right {
+            display: none;
+        }
+
+        .input-container.minimized .send-btn {
+            margin: 0;
+        }
+
+        /* Quick Action Bar for Non-Interactive Screens */
+        .quick-action-bar {
+            display: none;
+            padding: 12px 20px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .quick-action-bar.visible {
+            display: flex;
+        }
+
+        .quick-action-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .quick-action-btn:hover {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border-color: var(--accent-primary);
+            transform: translateY(-1px);
+        }
+
+        .quick-action-btn.primary {
+            background: var(--accent-primary);
+            color: var(--text-primary);
+            border-color: var(--accent-primary);
+        }
+
+        .quick-action-btn.primary:hover {
+            background: var(--accent-secondary);
+        }
+
+        /* Smooth transitions for input area changes */
+        .input-container,
+        .quick-action-bar {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Ensure proper spacing when input is hidden */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        /* Responsive adjustments for mobile */
+        @media (max-width: 768px) {
+            .quick-action-bar {
+                padding: 8px 12px;
+                gap: 8px;
+            }
+            
+            .quick-action-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+            
+            .input-container {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+    <body>
+        <!-- Welcome Screen Overlay -->
+        <div class="welcome-overlay" id="welcomeOverlay">
+            <div class="welcome-logo">
+                <i class="fas fa-balance-scale"></i>
+            </div>
+            <div class="welcome-text">
+                <div class="welcome-title">LegalAI Court</div>
+                <div class="welcome-subtitle">Advanced Legal Debate Assistant</div>
+                <div class="welcome-court-name">Supreme Court of Digital Justice</div>
+            </div>
+            <div class="loading-dots">
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+            </div>
+            <button class="skip-welcome-btn" onclick="hideWelcomeScreen()">
+                <i class="fas fa-forward"></i>
+                Skip Intro
+            </button>
+        </div>
+
+        <!-- Voice Activity Indicator -->
+        <div class="voice-activity" id="voiceActivity">
+            <i class="fas fa-microphone"></i>
+        </div>
+
+        <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <i class="fas fa-balance-scale"></i>
+                    </div>
+                    LegalAI
+                </div>
+                <button class="sidebar-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">Practice</div>
+                    <div class="nav-item active" onclick="switchMode('chat')">
+                        <i class="fas fa-gavel"></i>
+                        Live Court
+                    </div>
+                    <div class="nav-item" onclick="switchMode('setup')">
+                        <i class="fas fa-cog"></i>
+                        Case Setup
+                    </div>
+                    <div class="nav-item" onclick="switchMode('history')">
+                        <i class="fas fa-history"></i>
+                        Debate History
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Documents</div>
+                    <div class="nav-item" onclick="switchMode('upload')">
+                        <i class="fas fa-upload"></i>
+                        Upload Case Files
+                    </div>
+                    <div class="nav-item" onclick="switchMode('library')">
+                        <i class="fas fa-folder-open"></i>
+                        Document Library
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Analysis</div>
+                    <div class="nav-item" onclick="switchMode('research')">
+                        <i class="fas fa-search"></i>
+                        Legal Research
+                    </div>
+                    <div class="nav-item" onclick="switchMode('precedent')">
+                        <i class="fas fa-gavel"></i>
+                        Precedent Search
+                    </div>
+                    <div class="nav-item" onclick="switchMode('analysis')">
+                        <i class="fas fa-chart-line"></i>
+                        Case Analysis
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Tools</div>
+                    <div class="nav-item" onclick="switchMode('generator')">
+                        <i class="fas fa-file-alt"></i>
+                        Document Generator
+                    </div>
+                    <div class="nav-item" onclick="switchMode('summarizer')">
+                        <i class="fas fa-compress-alt"></i>
+                        Case Summarizer
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Settings</div>
+                    <div class="nav-item" onclick="switchMode('profile')">
+                        <i class="fas fa-user"></i>
+                        Profile
+                    </div>
+                    <div class="nav-item" onclick="switchMode('settings')">
+                        <i class="fas fa-cog"></i>
+                        Settings
+                    </div>
+                    <div class="nav-item" onclick="switchMode('help')">
+                        <i class="fas fa-question-circle"></i>
+                        Help & Support
+                    </div>
+                </div>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Top Bar -->
+            <div class="top-bar">
+                <div class="top-bar-left">
+                    <button class="sidebar-toggle-mobile" onclick="toggleSidebar()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <div class="search-box">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" class="search-input" placeholder="Search debates, documents, or legal topics...">
+                    </div>
+                </div>
+                <div class="top-bar-right">
+                    <button class="action-btn" onclick="clearChat()">
+                        <i class="fas fa-trash"></i>
+                        Clear Chat
+                    </button>
+                    <button class="action-btn primary" onclick="exportChat()">
+                        <i class="fas fa-download"></i>
+                        Export
+                    </button>
+                    <div class="user-avatar">U</div>
+                </div>
+            </div>
+
+            <!-- Chat Container -->
+            <div class="chat-container">
+                <div class="chat-messages" id="chatMessages">
+                    <!-- Welcome Message -->
+                    <div class="message assistant">
+                        <div class="message-avatar">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <div class="message-content">
+                            <div class="message-bubble">
+                                <div class="message-header">
+                                    <span class="message-role">LegalAI Assistant</span>
+                                    <span class="message-time">Just now</span>
+                                </div>
+                                <div class="message-text">
+                                    <h3>⚖️ Welcome to LegalAI Practice Court</h3>
+                                    <p>Your advanced legal practice simulation with AI-powered opposition counsel and judicial oversight.</p>
+                                    
+                                    <div style="margin: 20px 0;">
+                                        <h4>🎯 Choose Your Practice Session:</h4>
+                                        
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 12px;">
+                                            <div style="
+                                                background: var(--bg-tertiary);
+                                                border: 1px solid var(--border-color);
+                                                border-radius: 12px;
+                                                padding: 20px;
+                                                cursor: pointer;
+                                                transition: all 0.2s;
+                                            " onclick="showCaseSetupForm()">
+                                                <h5 style="margin: 0 0 12px 0; color: var(--accent-primary);">🚀 New Case</h5>
+                                                <p style="margin: 0; color: var(--text-secondary); font-size: 14px;">
+                                                    Start a fresh legal practice session with custom case configuration
+                                                </p>
+                                            </div>
+                                            
+                                            <div style="
+                                                background: var(--bg-tertiary);
+                                                border: 1px solid var(--border-color);
+                                                border-radius: 12px;
+                                                padding: 20px;
+                                                cursor: pointer;
+                                                transition: all 0.2s;
+                                            " onclick="showDebateHistory()">
+                                                <h5 style="margin: 0 0 12px 0; color: var(--accent-success);">📚 Continue Case</h5>
+                                                <p style="margin: 0; color: var(--text-secondary); font-size: 14px;">
+                                                    Resume practicing from where you left off in previous sessions
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div style="margin-top: 20px; padding: 15px; background: var(--bg-tertiary); border-radius: 8px; border-left: 4px solid var(--accent-warning);">
+                                        <h4>⚖️ Multi-Agent Court System</h4>
+                                        <p style="margin: 8px 0; font-size: 14px;">
+                                            <span style="color: #3b82f6;">🔵 <strong>You (Human Lawyer):</strong></span> Present your case and arguments<br>
+                                            <span style="color: #10b981;">🟢 <strong>AI Lawyer (Opposition):</strong></span> Will challenge your arguments<br>
+                                            <span style="color: #f59e0b;">🟡 <strong>AI Judge:</strong></span> Will provide judicial oversight and rulings
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input Area -->
+                <div class="input-container hidden">
+                    <div class="courtroom-status" id="courtroomStatus">
+                        Court Ready
+                    </div>
+                    
+                    <!-- Voice Court Control Panel -->
+                    <div class="voice-court-controls" id="voiceCourtControls" style="display: none;">
+                        <div class="voice-control-info">
+                            <i class="fas fa-gavel"></i>
+                            <span>AI Voice Court Active</span>
+                        </div>
+                        <button class="disable-voice-btn" onclick="disableAutoVoiceMode()" title="Disable AI voice court">
+                            <i class="fas fa-stop"></i>
+                            Disable Voice Court
+                        </button>
+                        <div class="keyboard-hint">
+                            <i class="fas fa-keyboard"></i>
+                            Ctrl+Shift+D
+                        </div>
+                    </div>
+                    
+                    <div class="legal-tools">
+                        <button class="legal-tool-btn" onclick="toggleResearchMode()" id="researchModeBtn" data-tooltip="Enable AI-powered legal research assistance">
+                            <i class="fas fa-search"></i>
+                            Research Mode
+                        </button>
+                        <button class="legal-tool-btn" onclick="toggleCitationMode()" id="citationModeBtn" data-tooltip="Include proper legal citations in responses">
+                            <i class="fas fa-quote-right"></i>
+                            Citation Mode
+                        </button>
+                        <button class="legal-tool-btn" onclick="showLegalTemplates()" id="templateBtn" data-tooltip="Access pre-written legal templates and phrases">
+                            <i class="fas fa-file-alt"></i>
+                            Legal Templates
+                        </button>
+                        <button class="legal-tool-btn" onclick="showObjectionGuide()" id="objectionBtn" data-tooltip="Quick reference for common courtroom objections">
+                            <i class="fas fa-gavel"></i>
+                            Objection Guide
+                        </button>
+                        <button class="legal-tool-btn" onclick="showEvidenceSubmissionGuide()" id="evidenceBtn" data-tooltip="Learn proper evidence submission procedure">
+                            <i class="fas fa-folder-open"></i>
+                            Evidence Guide
+                        </button>
+                    </div>
+                    
+                    <div class="input-wrapper">
+                        <textarea 
+                            id="chatInput" 
+                            class="chat-input" 
+                            placeholder="Present your legal argument, address the court, or challenge the opposition..."
+                            onkeydown="handleKeyDown(event)"
+                            oninput="autoResize(this); handleAutoSave(this)"
+                            rows="1"
+                        ></textarea>
+                    </div>
+                    
+                    <!-- Auto-save indicator -->
+                    <div class="auto-save-indicator" id="autoSaveIndicator">
+                        <i class="fas fa-circle"></i>
+                        <span id="autoSaveText">Draft saved</span>
+                    </div>
+                    
+                    <div class="input-actions">
+                        <div class="input-actions-left">
+                            <button class="input-btn" onclick="attachDocument()" data-tooltip="Attach legal documents and evidence">
+                                <i class="fas fa-paperclip"></i>
+                                Attach Document
+                            </button>
+                            <button class="input-btn voice-btn" onclick="toggleAutoVoiceMode()" id="autoVoiceBtn" data-tooltip="Enable automatic voice recording and AI response playback">
+                                <i class="fas fa-microphone"></i>
+                                Enable Auto Voice
+                            </button>
+                            <button class="input-btn voice-btn" onclick="toggleVoiceRecording()" id="voiceRecordBtn" data-tooltip="Use manual voice input for hands-free argument presentation">
+                                <i class="fas fa-microphone-alt"></i>
+                                Manual Voice
+                            </button>
+                            <button class="input-btn" onclick="showLegalDictionary()" data-tooltip="Access legal terminology and definitions">
+                                <i class="fas fa-book"></i>
+                                Legal Terms
+                            </button>
+                        </div>
+                        
+                        <div class="input-actions-right">
+                            <button class="input-btn" onclick="clearInput()" data-tooltip="Clear the current input">
+                                <i class="fas fa-eraser"></i>
+                                Clear
+                            </button>
+                            <button class="input-btn" onclick="saveDraft()" data-tooltip="Save current argument as draft">
+                                <i class="fas fa-save"></i>
+                                Save Draft
+                            </button>
+                            <button id="aiSuggestBtn" class="ai-suggest-btn" onclick="generateAISuggestion()" data-tooltip="Get AI-generated legal argument suggestions">
+                                <i class="fas fa-magic"></i>
+                                AI Suggest
+                            </button>
+                            <button id="sendBtn" class="send-btn" onclick="sendMessage()" disabled>
+                                <i class="fas fa-paper-plane"></i>
+                                Submit to Court
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Action Bar for Non-Interactive Screens -->
+            <div class="quick-action-bar visible" id="quickActionBar">
+                <button class="quick-action-btn primary" onclick="showCaseSetupForm()">
+                    <i class="fas fa-plus"></i>
+                    New Case
+                </button>
+                <button class="quick-action-btn" onclick="showDebateHistory()">
+                    <i class="fas fa-history"></i>
+                    Case History
+                </button>
+                <button class="quick-action-btn" onclick="showChatInterface()">
+                    <i class="fas fa-gavel"></i>
+                    Live Court
+                </button>
+                <button class="quick-action-btn" onclick="showWelcomeScreen()">
+                    <i class="fas fa-home"></i>
+                    Home
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Welcome Screen and Voice Functionality
+        let welcomeScreenShown = false;
+        let speechSynthesis = window.speechSynthesis;
+        let welcomeVoice = null;
+
+        // Initialize welcome screen
+        function initializeWelcomeScreen() {
+            if (welcomeScreenShown) return;
+            
+            const welcomeOverlay = document.getElementById('welcomeOverlay');
+            if (!welcomeOverlay) return;
+
+            // Show welcome screen
+            welcomeOverlay.classList.remove('hidden');
+            
+            // Initialize speech synthesis
+            initializeVoice();
+            
+            // Play welcome message with voice
+            setTimeout(() => {
+                speakWelcomeMessage();
+            }, 1000);
+            
+            // Hide welcome screen after 5 seconds
+            setTimeout(() => {
+                hideWelcomeScreen();
+            }, 5000);
+            
+            welcomeScreenShown = true;
+        }
+
+        function initializeVoice() {
+            // Wait for voices to load
+            speechSynthesis.onvoiceschanged = function() {
+                const voices = speechSynthesis.getVoices();
+                // Try to find a good voice for legal context
+                welcomeVoice = voices.find(voice => 
+                    voice.lang.includes('en') && 
+                    (voice.name.includes('Google') || voice.name.includes('Microsoft') || voice.name.includes('Samantha'))
+                ) || voices.find(voice => voice.lang.includes('en')) || voices[0];
+            };
+            
+            // Trigger voices loading
+            speechSynthesis.getVoices();
+        }
+
+        function speakWelcomeMessage() {
+            if (!speechSynthesis || !welcomeVoice) return;
+            
+            const welcomeText = "Welcome to LegalAI Court, the Supreme Court of Digital Justice. Your advanced legal debate assistant is ready to serve.";
+            
+            // Cancel any ongoing speech
+            speechSynthesis.cancel();
+            
+            const utterance = new SpeechSynthesisUtterance(welcomeText);
+            utterance.voice = welcomeVoice;
+            utterance.rate = 0.9;
+            utterance.pitch = 1.0;
+            utterance.volume = 0.8;
+            
+            speechSynthesis.speak(utterance);
+        }
+
+        function hideWelcomeScreen() {
+            const welcomeOverlay = document.getElementById('welcomeOverlay');
+            if (welcomeOverlay) {
+                welcomeOverlay.classList.add('fade-out');
+                setTimeout(() => {
+                    welcomeOverlay.classList.add('hidden');
+                }, 1000);
+            }
+        }
+
+        // Global variables
+        let debateHistory = [];
+        let isTyping = false;
+        let currentSessionId = null;
+        let currentCaseId = null;
+
+        // Sidebar Toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('collapsed');
+        }
+
+        // Mode Switching
+        function switchMode(mode) {
+            currentMode = mode;
+            
+            // Update active nav item
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.target.closest('.nav-item').classList.add('active');
+
+            // Handle mode-specific actions
+            switch(mode) {
+                case 'upload':
+                    showUploadInterface();
+                    break;
+                case 'setup':
+                    showCaseSetupForm();
+                    break;
+                case 'history':
+                    showDebateHistory();
+                    break;
+                case 'chat':
+                    showChatInterface();
+                    break;
+                default:
+                    showChatInterface();
+            }
+        }
+
+        // Input Handling
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+            
+            // Keyboard shortcut to disable AI voice court (Ctrl+Shift+D)
+            if (event.ctrlKey && event.shiftKey && event.key === 'D') {
+                event.preventDefault();
+                if (isAutoVoiceMode) {
+                    disableAutoVoiceMode();
+                }
+            }
+        }
+
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+            
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = textarea.value.trim().length === 0;
+        }
+
+        // Message Sending
+        async function sendMessage(isVoiceInput = false) {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (!message || isTyping) return;
+
+            // Add user message
+            addMessage('user', message, null, isVoiceInput);
+            input.value = '';
+            autoResize(input);
+
+            // Show typing indicator
+            showTypingIndicator();
+
+            try {
+                // Use case management system if available, otherwise fall back to direct debate
+                if (currentSessionId) {
+                    await continueCaseSession(message);
+                } else {
+                    await sendMessageDirect(message);
+                }
+                // Hide typing indicator after response
+                hideTypingIndicator();
+            } catch (error) {
+                hideTypingIndicator();
+                addMessage('assistant', `Error: ${error.message}`);
+            }
+        }
+
+        // Message Display
+        function addMessage(role, content, audioUrl = null, isVoiceInput = false) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            
+            const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            let roleDisplay, avatarIcon, bubbleClass;
+            
+            switch(role) {
+                case 'user':
+                    roleDisplay = 'YOU (HUMAN LAWYER)';
+                    avatarIcon = '👨‍💼';
+                    bubbleClass = 'user-bubble';
+                    break;
+                case 'assistant':
+                    roleDisplay = 'AI LAWYER (OPPOSITION)';
+                    avatarIcon = '🤖';
+                    bubbleClass = 'assistant-bubble';
+                    break;
+                case 'judge':
+                    roleDisplay = 'AI JUDGE';
+                    avatarIcon = '⚖️';
+                    bubbleClass = 'judge-bubble';
+                    break;
+                default:
+                    roleDisplay = 'SYSTEM';
+                    avatarIcon = '💬';
+                    bubbleClass = 'system-bubble';
+            }
+            
+            // Add voice controls for AI responses
+            let voiceControls = '';
+            if ((role === 'assistant' || role === 'judge') && audioUrl) {
+                voiceControls = `
+                    <div class="voice-controls">
+                        <button class="voice-btn" onclick="playAudio('${audioUrl}')">
+                            <i class="fas fa-play"></i>
+                            Play Voice
+                        </button>
+                        <button class="voice-btn" onclick="synthesizeSpeech('${content}', '${role}')">
+                            <i class="fas fa-microphone"></i>
+                            Regenerate Voice
+                        </button>
+                    </div>
+                    <div class="audio-player">
+                        <audio id="audio-${Date.now()}" controls>
+                            <source src="${audioUrl}" type="audio/mpeg">
+                            Your browser does not support the audio element.
+                        </audio>
+                    </div>
+                `;
+            }
+            
+            // Add voice indicator for user messages from voice input
+            const voiceIndicator = isVoiceInput && role === 'user' ? 
+                '<div class="voice-indicator"><i class="fas fa-microphone"></i> Voice Input</div>' : '';
+            
+            messageDiv.innerHTML = `
+                <div class="message-avatar">
+                    ${avatarIcon}
+                </div>
+                <div class="message-content">
+                    <div class="message-bubble ${bubbleClass}">
+                        <div class="message-header">
+                            <span class="message-role">${roleDisplay}</span>
+                            <span class="message-time">${currentTime}</span>
+                        </div>
+                        <div class="message-text">
+                            ${renderMarkdown(content)}
+                        </div>
+                        ${voiceIndicator}
+                        ${voiceControls}
+                    </div>
+                </div>
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // Add to debate history
+            debateHistory.push({ role, content, audioUrl });
+        }
+
+        function showAgentIndicator(role) {
+            const indicator = document.createElement('div');
+            indicator.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${role === 'assistant' ? '#10b981' : '#f59e0b'};
+                color: white;
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: 600;
+                z-index: 1000;
+                animation: slideInRight 0.3s ease-out;
+            `;
+            indicator.textContent = role === 'assistant' ? '🤖 AI Lawyer Responding' : '⚖️ Judge Intervening';
+            
+            document.body.appendChild(indicator);
+            
+            setTimeout(() => {
+                indicator.style.animation = 'slideOutRight 0.3s ease-out';
+                setTimeout(() => indicator.remove(), 300);
+            }, 2000);
+        }
+
+        // Typing Indicator
+        function showTypingIndicator() {
+            isTyping = true;
+            const chatMessages = document.getElementById('chatMessages');
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'message assistant';
+            typingDiv.id = 'typingIndicator';
+            
+            typingDiv.innerHTML = `
+                <div class="message-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="message-content">
+                    <div class="typing-indicator">
+                        <span class="typing-text">AI Lawyer is preparing response...</span>
+                        <div class="typing-dots">
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            chatMessages.appendChild(typingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function hideTypingIndicator() {
+            isTyping = false;
+            const typingIndicator = document.getElementById('typingIndicator');
+            if (typingIndicator) {
+                typingIndicator.remove();
+            }
+        }
+
+        // Utility Functions
+        function formatMessageText(text) {
+            // Convert markdown to HTML
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/`(.*?)`/g, '<code>$1</code>')
+                .replace(/\n/g, '<br>');
+        }
+
+        function copyMessage(button) {
+            const messageText = button.closest('.message-bubble').querySelector('.message-text').textContent;
+            navigator.clipboard.writeText(messageText);
+            
+            // Show feedback
+            const icon = button.querySelector('i');
+            icon.className = 'fas fa-check';
+            setTimeout(() => {
+                icon.className = 'fas fa-copy';
+            }, 1000);
+        }
+
+        function bookmarkMessage(button) {
+            const icon = button.querySelector('i');
+            icon.classList.toggle('fas');
+            icon.classList.toggle('far');
+            
+            if (icon.classList.contains('fas')) {
+                icon.style.color = 'var(--accent-warning)';
+            } else {
+                icon.style.color = 'var(--text-muted)';
+            }
+        }
+
+        function showSources(button) {
+            // This would show the legal sources used by the AI
+            const messageBubble = button.closest('.message-bubble');
+            const messageText = messageBubble.querySelector('.message-text').textContent;
+            
+            // For now, show a simple notification
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: var(--bg-secondary);
+                border: 1px solid var(--border-color);
+                border-radius: 8px;
+                padding: 20px;
+                max-width: 400px;
+                z-index: 1001;
+                box-shadow: var(--shadow-heavy);
+            `;
+            
+            notification.innerHTML = `
+                <h4>📚 Legal Sources</h4>
+                <p>This response was based on uploaded legal documents and precedents in our database.</p>
+                <button onclick="this.parentElement.remove()" style="
+                    background: var(--accent-primary);
+                    color: white;
+                    border: none;
+                    padding: 8px 16px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    margin-top: 10px;
+                ">Close</button>
+            `;
+            
+            document.body.appendChild(notification);
+        }
+
+        function clearChat() {
+            if (confirm('Are you sure you want to clear the chat history?')) {
+                const chatMessages = document.getElementById('chatMessages');
+                chatMessages.innerHTML = '';
+                debateHistory = [];
+                
+                // Add welcome message back
+                addMessage('assistant', 'Chat cleared. How can I help you with your legal matters today?');
+            }
+        }
+
+        function exportChat() {
+            const chatData = {
+                timestamp: new Date().toISOString(),
+                debate_history: debateHistory
+            };
+            
+            const blob = new Blob([JSON.stringify(chatData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `legal-debate-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Case Management Functions
+        async function loadCases() {
+            try {
+                const response = await fetch('/ai-court/api/cases');
+                const data = await response.json();
+                return data.cases;
+            } catch (error) {
+                console.error('Error loading cases:', error);
+                return [];
+            }
+        }
+
+        async function createNewCase(caseDetails, practiceConfig) {
+            try {
+                const response = await fetch('/ai-court/api/cases', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        case_details: caseDetails,
+                        practice_config: practiceConfig
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    currentSessionId = data.session_id;
+                    currentCaseId = data.case_id;
+                    
+                    // Store session info
+                    sessionStorage.setItem('currentSessionId', data.session_id);
+                    sessionStorage.setItem('currentCaseId', data.case_id);
+                    
+                    // Clear chat and show proper order: Judge first, then system message
+                    const chatMessages = document.getElementById('chatMessages');
+                    chatMessages.innerHTML = '';
+                    
+                    // 1. Show judge opening first (orange bubble)
+                    addMessage('judge', data.judge_opening);
+                    
+                    // 2. Show system confirmation (blue bubble)
+                    addMessage('assistant', `🎯 **Case Session Started Successfully!**
+
+📋 **Case Details:**
+- **Title:** ${caseDetails.caseTitle}
+- **Type:** ${caseDetails.caseType}
+- **Issue:** ${caseDetails.specificIssue}
+- **Your Role:** ${caseDetails.userRole}
+
+👨‍💼 **Opponent Profile:**
+- **Experience:** ${practiceConfig.opponentExperience}
+- **Style:** ${practiceConfig.opponentStyle}
+- **Strengths:** ${practiceConfig.opponentStrengths}
+
+🎯 **Practice Settings:**
+- **Difficulty:** ${practiceConfig.difficultyLevel}
+- **Judge Strictness:** ${practiceConfig.judgeStrictness}
+- **Time Pressure:** ${practiceConfig.timePressure}
+
+The court is now in session. You may begin your case presentation.`);
+                    
+                    return data;
+                } else {
+                    throw new Error('Failed to create case');
+                }
+            } catch (error) {
+                console.error('Error creating case:', error);
+                addMessage('assistant', `❌ Error creating case: ${error.message}`);
+            }
+        }
+
+        async function continueCaseSession(humanInput) {
+            if (!currentSessionId) {
+                // Fall back to regular debate if no session
+                return await sendMessageDirect(humanInput);
+            }
+            
+            try {
+                const response = await fetch(`/ai-court/api/sessions/${currentSessionId}/continue`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ human_input: humanInput })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Add AI lawyer response if provided
+                    if (data.ai_lawyer_response) {
+                        addMessage('assistant', data.ai_lawyer_response);
+                    }
+                    
+                    // Add judge intervention if any
+                    if (data.judge_intervention && data.judge_intervention !== 'NO_JUDGE_INTERVENTION') {
+                        addMessage('judge', data.judge_intervention);
+                    }
+                    
+                    return data;
+                } else {
+                    throw new Error('Failed to continue session');
+                }
+            } catch (error) {
+                console.error('Error continuing session:', error);
+                // Fall back to regular debate
+                return await sendMessageDirect(humanInput);
+            }
+        }
+
+        async function sendMessageDirect(humanInput) {
+            // Original debate logic for non-session cases
+            const apiHistory = debateHistory.map(entry => ({
+                role: entry.role,
+                content: entry.content
+            }));
+
+            const practiceConfig = sessionStorage.getItem('practiceConfig');
+            const config = practiceConfig ? JSON.parse(practiceConfig) : null;
+
+            const requestBody = {
+                human_input: humanInput,
+                debate_history: apiHistory
+            };
+
+            if (config) {
+                requestBody.practice_config = config;
+            }
+
+            console.log('Sending request:', requestBody);
+
+            const response = await fetch('/ai-court/api/debate_turn_with_voice', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Received response:', data);
+                
+                if (data.ai_lawyer_response) {
+                    console.log('Adding AI lawyer response:', data.ai_lawyer_response);
+                    addMessageWithAutoPlay('assistant', data.ai_lawyer_response, data.ai_lawyer_audio_url);
+                } else {
+                    console.log('No AI lawyer response received');
+                }
+                
+                if (data.judge_intervention && data.judge_intervention !== 'NO_JUDGE_INTERVENTION') {
+                    console.log('Adding judge intervention:', data.judge_intervention);
+                    addMessageWithAutoPlay('judge', data.judge_intervention, data.judge_audio_url);
+                }
+                
+                return data;
+            } else {
+                const errorText = await response.text();
+                console.error('Response error:', response.status, errorText);
+                throw new Error('Failed to send message');
+            }
+        }
+
+        // Interface Functions
+        function showUploadInterface() {
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = `
+                <div class="message assistant">
+                    <div class="message-avatar">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="message-content">
+                        <div class="message-bubble">
+                            <div class="message-header">
+                                <span class="message-role">LegalAI Assistant</span>
+                                <span class="message-time">Just now</span>
+                            </div>
+                            <div class="message-text">
+                                <h3>📄 Upload Case Materials</h3>
+                                <p>Upload your legal documents to prepare for the debate. I'll analyze them and use them to strengthen your case.</p>
+                                
+                                <div style="margin: 20px 0;">
+                                    <h4>📋 Recommended Document Types:</h4>
+                                    <ul style="margin: 10px 0; padding-left: 20px;">
+                                        <li><strong>Case Files:</strong> Court documents, pleadings, motions</li>
+                                        <li><strong>Statutes & Regulations:</strong> Relevant laws and legal codes</li>
+                                        <li><strong>Precedents:</strong> Previous court decisions and rulings</li>
+                                        <li><strong>Evidence:</strong> Contracts, agreements, witness statements</li>
+                                        <li><strong>Legal Briefs:</strong> Written arguments and legal analysis</li>
+                                        <li><strong>Expert Reports:</strong> Professional opinions and assessments</li>
+                                    </ul>
+                                </div>
+                                
+                                <div class="file-upload-area" onclick="document.getElementById('fileInput').click()">
+                                    <i class="fas fa-cloud-upload-alt" style="font-size: 48px; color: var(--accent-primary); margin-bottom: 16px;"></i>
+                                    <p><strong>Click to upload</strong> or drag and drop files here</p>
+                                    <p style="color: var(--text-muted); font-size: 14px;">PDF, TXT files up to 10MB</p>
+                                </div>
+                                
+                                <input type="file" id="fileInput" accept=".pdf,.txt" style="display: none;" onchange="handleFileUpload(event)">
+                                
+                                <div style="margin-top: 20px; padding: 15px; background: var(--bg-tertiary); border-radius: 8px; border-left: 4px solid var(--accent-warning);">
+                                    <h4>⚖️ Multi-Agent Debate System</h4>
+                                    <p style="margin: 8px 0; font-size: 14px;">
+                                        <span style="color: #3b82f6;">🔵 <strong>You (Human Lawyer):</strong></span> Present your case and arguments<br>
+                                        <span style="color: #10b981;">🟢 <strong>AI Lawyer (Opposition):</strong></span> Will challenge your arguments<br>
+                                        <span style="color: #f59e0b;">🟡 <strong>AI Judge:</strong></span> Will intervene when necessary for legal accuracy
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showDebateHistory() {
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = `
+                <div class="message assistant">
+                    <div class="message-avatar">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="message-content">
+                        <div class="message-bubble">
+                            <div class="message-header">
+                                <span class="message-role">LegalAI Assistant</span>
+                                <span class="message-time">Just now</span>
+                            </div>
+                            <div class="message-text">
+                                <div class="case-management">
+                                    <div class="case-header">
+                                        <h3>📚 Your Legal Cases</h3>
+                                        <div class="case-controls">
+                                            <div class="case-search">
+                                                <i class="fas fa-search"></i>
+                                                <input type="text" id="caseSearch" placeholder="Search cases..." oninput="filterCases()">
+                                            </div>
+                                            <div class="case-filters">
+                                                <button class="filter-btn active" onclick="filterByStatus('all')" data-status="all">All</button>
+                                                <button class="filter-btn" onclick="filterByStatus('active')" data-status="active">Active</button>
+                                                <button class="filter-btn" onclick="filterByStatus('paused')" data-status="paused">Paused</button>
+                                                <button class="filter-btn" onclick="filterByStatus('closed')" data-status="closed">Closed</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="casesList">
+                                        <div style="text-align: center; padding: 40px;">
+                                            <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: var(--accent-primary);"></i>
+                                            <p style="margin-top: 12px; color: var(--text-secondary);">Loading your cases...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            updateInputContext('case-history');
+            
+            // Load and display cases
+            loadCases().then(cases => {
+                const casesList = document.getElementById('casesList');
+                if (cases.length === 0) {
+                    casesList.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-folder-open"></i>
+                            <h4>No Cases Found</h4>
+                            <p>You haven't created any cases yet. Start by creating a new case to begin practicing.</p>
+                            <button class="action-btn primary" onclick="showCaseSetupForm()" style="margin-top: 16px;">
+                                <i class="fas fa-plus"></i>
+                                Create New Case
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    casesList.innerHTML = `
+                        <div class="case-grid">
+                            ${cases.map(caseItem => {
+                                const customTitle = caseItem.customTitle || generateCustomTitle(caseItem);
+                                const progress = calculateProgress(caseItem);
+                                const tags = generateTags(caseItem);
+                                const stats = generateStats(caseItem);
+                                
+                                return `
+                                    <div class="case-card" data-case-id="${caseItem.caseId}" data-status="${caseItem.status}">
+                                        <div class="case-card-header">
+                                            <div>
+                                                <h4 class="case-title">${customTitle}</h4>
+                                                <p class="case-subtitle">${caseItem.specificIssue}</p>
+                                            </div>
+                                            <div class="case-status ${caseItem.status}">
+                                                <i class="fas fa-circle"></i>
+                                                ${caseItem.status}
+                                            </div>
+                                        </div>
+                                        
+                                        ${tags ? `<div class="case-tags">${tags}</div>` : ''}
+                                        
+                                        <div class="case-meta">
+                                            <div class="meta-item">
+                                                <i class="fas fa-gavel"></i>
+                                                <span>${caseItem.caseType}</span>
+                                            </div>
+                                            <div class="meta-item">
+                                                <i class="fas fa-user-tie"></i>
+                                                <span>${caseItem.userRole}</span>
+                                            </div>
+                                            <div class="meta-item">
+                                                <i class="fas fa-calendar"></i>
+                                                <span>${formatDate(caseItem.createdAt)}</span>
+                                            </div>
+                                            <div class="meta-item">
+                                                <i class="fas fa-clock"></i>
+                                                <span>${formatDate(caseItem.lastModified)}</span>
+                                            </div>
+                                        </div>
+                                        
+                                        ${stats ? `<div class="case-stats">${stats}</div>` : ''}
+                                        
+                                        <div class="case-progress">
+                                            <div class="progress-bar">
+                                                <div class="progress-fill" style="width: ${progress}%"></div>
+                                            </div>
+                                            <div class="progress-text">${progress}% Complete</div>
+                                        </div>
+                                        
+                                        <div class="case-actions">
+                                            <button class="action-btn primary" onclick="continueCase('${caseItem.caseId}')">
+                                                <i class="fas fa-play"></i>
+                                                Resume
+                                            </button>
+                                            <button class="action-btn" onclick="editCase('${caseItem.caseId}')">
+                                                <i class="fas fa-edit"></i>
+                                                Edit
+                                            </button>
+                                            <button class="action-btn" onclick="duplicateCase('${caseItem.caseId}')">
+                                                <i class="fas fa-copy"></i>
+                                                Duplicate
+                                            </button>
+                                            <button class="action-btn" onclick="exportCase('${caseItem.caseId}')">
+                                                <i class="fas fa-download"></i>
+                                                Export
+                                            </button>
+                                            <button class="action-btn danger" onclick="deleteCase('${caseItem.caseId}')">
+                                                <i class="fas fa-trash"></i>
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    `;
+                }
+            });
+        }
+
+        async function continueCase(caseId) {
+            try {
+                // Get the case details
+                const response = await fetch(`/ai-court/api/cases/${caseId}`);
+                if (!response.ok) {
+                    throw new Error('Case not found');
+                }
+                
+                const caseData = await response.json();
+                
+                // For now, create a new session for this case
+                const practiceConfig = {
+                    caseType: caseData.caseType,
+                    specificIssue: caseData.specificIssue,
+                    caseSummary: caseData.caseSummary,
+                    userRole: caseData.userRole,
+                    difficultyLevel: 'intermediate',
+                    judgeStrictness: 'moderate',
+                    timePressure: 'none'
+                };
+                
+                // Create new case with existing details
+                const newCaseResponse = await createNewCase(caseData, practiceConfig);
+                
+                if (newCaseResponse) {
+                    // Show case continuation message
+                    addMessage('assistant', `🔄 **Case Resumed: ${caseData.caseTitle}**
+
+📋 **Case Details:**
+- **Type:** ${caseData.caseType}
+- **Issue:** ${caseData.specificIssue}
+- **Your Role:** ${caseData.userRole}
+
+A new session has been created. You can continue practicing this case.`);
+                }
+                
+                // Switch to chat interface
+                showChatInterface();
+                updateInputContext('chat');
+                
+            } catch (error) {
+                console.error('Error continuing case:', error);
+                addMessage('assistant', `❌ Error continuing case: ${error.message}`);
+            }
+        }
+
+        function showChatInterface() {
+            // Clear the chat and show a clean Live Court interface
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = `
+                <div class="message assistant">
+                    <div class="message-avatar">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="message-content">
+                        <div class="message-bubble">
+                            <div class="message-header">
+                                <span class="message-role">LegalAI Assistant</span>
+                                <span class="message-time">Just now</span>
+                            </div>
+                            <div class="message-text">
+                                <h3>⚖️ Live Court Session</h3>
+                                <p>Welcome to the courtroom. You can now engage in live legal debate with AI opposition counsel and judicial oversight.</p>
+                                
+                                <div style="margin: 20px 0; padding: 15px; background: var(--bg-tertiary); border-radius: 8px; border-left: 4px solid var(--accent-primary);">
+                                    <h4>🎯 How to Proceed:</h4>
+                                    <ul style="margin: 8px 0; padding-left: 20px;">
+                                        <li><strong>Start your case:</strong> "Your Honor, I represent the plaintiff in this matter..."</li>
+                                        <li><strong>Present arguments:</strong> "The evidence shows that..."</li>
+                                        <li><strong>Address the judge:</strong> "Your Honor, I request..."</li>
+                                        <li><strong>Challenge opposition:</strong> "Counsel, your argument fails because..."</li>
+                                    </ul>
+                                </div>
+                                
+                                <div style="margin-top: 20px; padding: 15px; background: var(--bg-tertiary); border-radius: 8px; border-left: 4px solid var(--accent-warning);">
+                                    <h4>⚖️ Court Participants:</h4>
+                                    <p style="margin: 8px 0; font-size: 14px;">
+                                        <span style="color: #3b82f6;">🔵 <strong>You (Human Lawyer):</strong></span> Present your case and arguments<br>
+                                        <span style="color: #10b981;">🟢 <strong>AI Lawyer (Opposition):</strong></span> Will challenge your arguments<br>
+                                        <span style="color: #f59e0b;">🟡 <strong>AI Judge:</strong></span> Will provide judicial oversight and rulings
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Show input area for live court
+            updateInputContext('chat');
+            
+            // Focus on input when showing chat interface
+            setTimeout(() => {
+                const input = document.getElementById('chatInput');
+                if (input) {
+                    input.focus();
+                }
+            }, 100);
+        }
+
+        function showQuickChat() {
+            // Clear chat and show a simple chat interface
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = `
+                <div class="message assistant">
+                    <div class="message-avatar">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="message-content">
+                        <div class="message-bubble">
+                            <div class="message-header">
+                                <span class="message-role">LegalAI Assistant</span>
+                                <span class="message-time">Just now</span>
+                            </div>
+                            <div class="message-text">
+                                <h3>💬 Quick Legal Chat</h3>
+                                <p>Ask me anything about legal concepts, case law, or get quick legal advice. I'm here to help!</p>
+                                
+                                <div style="margin: 20px 0; padding: 15px; background: var(--bg-tertiary); border-radius: 8px;">
+                                    <h4>💡 Quick Start Suggestions:</h4>
+                                    <ul style="margin: 8px 0; padding-left: 20px;">
+                                        <li>"Explain the elements of negligence"</li>
+                                        <li>"What are the requirements for a valid contract?"</li>
+                                        <li>"Help me understand Miranda rights"</li>
+                                        <li>"What's the difference between civil and criminal law?"</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            updateInputContext('chat');
+            
+            // Focus on input
+            setTimeout(() => {
+                const input = document.getElementById('chatInput');
+                if (input) {
+                    input.focus();
+                }
+            }, 100);
+        }
+
+        function showCaseSetupForm() {
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = `
+                <div class="message assistant">
+                    <div class="message-avatar">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="message-content">
+                        <div class="message-bubble">
+                            <div class="message-header">
+                                <span class="message-role">LegalAI Assistant</span>
+                                <span class="message-time">Just now</span>
+                            </div>
+                            <div class="message-text">
+                                <h3>⚖️ Case Practice Setup</h3>
+                                <p>Configure your legal practice session with detailed case information and opponent settings.</p>
+                                
+                                <form id="caseSetupForm" style="margin: 20px 0;">
+                                    <div style="margin-bottom: 20px;">
+                                        <h4>📋 Case Details</h4>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
+                                            <div>
+                                                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Case Type:</label>
+                                                <select id="caseType" style="width: 100%; padding: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary);">
+                                                    <option value="criminal">Criminal Law</option>
+                                                    <option value="civil">Civil Law</option>
+                                                    <option value="family">Family Law</option>
+                                                    <option value="contract">Contract Law</option>
+                                                    <option value="property">Property Law</option>
+                                                    <option value="employment">Employment Law</option>
+                                                    <option value="intellectual_property">Intellectual Property</option>
+                                                    <option value="constitutional">Constitutional Law</option>
+                                                    <option value="tax">Tax Law</option>
+                                                    <option value="environmental">Environmental Law</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Specific Issue:</label>
+                                                <input type="text" id="specificIssue" placeholder="e.g., Harassment, Breach of Contract" style="width: 100%; padding: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary);">
+                                            </div>
+                                        </div>
+                                        
+                                        <div style="margin-top: 15px;">
+                                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Case Summary:</label>
+                                            <textarea id="caseSummary" placeholder="Provide a brief summary of the case facts, parties involved, and key legal issues..." rows="4" style="width: 100%; padding: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); resize: vertical;"></textarea>
+                                        </div>
+                                    </div>
+
+                                    <div style="margin-bottom: 20px;">
+                                        <h4>👨‍💼 Opposition Lawyer Profile</h4>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
+                                            <div>
+                                                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Experience Level:</label>
+                                                <select id="opponentExperience" style="width: 100%; padding: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary);">
+                                                    <option value="junior">Junior Lawyer (1-3 years)</option>
+                                                    <option value="mid_level">Mid-Level Lawyer (4-7 years)</option>
+                                                    <option value="senior">Senior Lawyer (8-15 years)</option>
+                                                    <option value="partner">Partner/Expert (15+ years)</option>
+                                                    <option value="specialist">Specialist in this area</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Argument Style:</label>
+                                                <select id="opponentStyle" style="width: 100%; padding: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary);">
+                                                    <option value="aggressive">Aggressive & Confrontational</option>
+                                                    <option value="analytical">Analytical & Logical</option>
+                                                    <option value="persuasive">Persuasive & Charismatic</option>
+                                                    <option value="technical">Technical & Detail-Oriented</option>
+                                                    <option value="strategic">Strategic & Calculated</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        
+                                        <div style="margin-top: 15px;">
+                                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Opponent's Strengths:</label>
+                                            <input type="text" id="opponentStrengths" placeholder="e.g., Strong in precedents, Excellent cross-examination" style="width: 100%; padding: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary);">
+                                        </div>
+                                    </div>
+
+                                    <div style="margin-bottom: 20px;">
+                                        <h4>🎯 Practice Difficulty</h4>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top: 10px;">
+                                            <div>
+                                                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Overall Difficulty:</label>
+                                                <select id="difficultyLevel" style="width: 100%; padding: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary);">
+                                                    <option value="beginner">Beginner</option>
+                                                    <option value="intermediate">Intermediate</option>
+                                                    <option value="advanced">Advanced</option>
+                                                    <option value="expert">Expert Level</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Judge Strictness:</label>
+                                                <select id="judgeStrictness" style="width: 100%; padding: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary);">
+                                                    <option value="lenient">Lenient</option>
+                                                    <option value="moderate">Moderate</option>
+                                                    <option value="strict">Strict</option>
+                                                    <option value="very_strict">Very Strict</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Time Pressure:</label>
+                                                <select id="timePressure" style="width: 100%; padding: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary);">
+                                                    <option value="none">No Time Limit</option>
+                                                    <option value="low">Low Pressure</option>
+                                                    <option value="medium">Medium Pressure</option>
+                                                    <option value="high">High Pressure</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style="margin-bottom: 20px;">
+                                        <h4>📚 Additional Context</h4>
+                                        <div style="margin-top: 10px;">
+                                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Your Role:</label>
+                                            <select id="userRole" style="width: 100%; padding: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary);">
+                                                <option value="plaintiff">Plaintiff's Lawyer</option>
+                                                <option value="defendant">Defendant's Lawyer</option>
+                                                <option value="prosecutor">Prosecutor</option>
+                                                <option value="defense">Defense Attorney</option>
+                                                <option value="appellant">Appellant's Lawyer</option>
+                                                <option value="respondent">Respondent's Lawyer</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div style="margin-top: 15px;">
+                                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Key Arguments to Practice:</label>
+                                            <textarea id="keyArguments" placeholder="List the main arguments you want to practice or test..." rows="3" style="width: 100%; padding: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); resize: vertical;"></textarea>
+                                        </div>
+                                    </div>
+
+                                    <div style="display: flex; gap: 15px; justify-content: center;">
+                                        <button type="button" onclick="startPracticeSession()" style="
+                                            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+                                            color: white;
+                                            border: none;
+                                            padding: 12px 24px;
+                                            border-radius: 8px;
+                                            cursor: pointer;
+                                            font-weight: 600;
+                                            font-size: 16px;
+                                        ">🚀 Start Practice Session</button>
+                                        
+                                        <button type="button" onclick="showChatInterface()" style="
+                                            background: var(--bg-tertiary);
+                                            color: var(--text-secondary);
+                                            border: 1px solid var(--border-color);
+                                            padding: 12px 24px;
+                                            border-radius: 8px;
+                                            cursor: pointer;
+                                            font-weight: 600;
+                                            font-size: 16px;
+                                        ">❌ Cancel</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            updateInputContext('case-setup');
+        }
+
+        function startPracticeSession() {
+            const formData = {
+                caseType: document.getElementById('caseType').value,
+                specificIssue: document.getElementById('specificIssue').value,
+                caseSummary: document.getElementById('caseSummary').value,
+                opponentExperience: document.getElementById('opponentExperience').value,
+                opponentStyle: document.getElementById('opponentStyle').value,
+                opponentStrengths: document.getElementById('opponentStrengths').value,
+                difficultyLevel: document.getElementById('difficultyLevel').value,
+                judgeStrictness: document.getElementById('judgeStrictness').value,
+                timePressure: document.getElementById('timePressure').value,
+                userRole: document.getElementById('userRole').value,
+                keyArguments: document.getElementById('keyArguments').value
+            };
+
+            // Create case details
+            const caseDetails = {
+                caseTitle: `${formData.caseType} - ${formData.specificIssue}`,
+                caseType: formData.caseType,
+                specificIssue: formData.specificIssue,
+                caseSummary: formData.caseSummary,
+                plaintiff: formData.userRole.includes('plaintiff') || formData.userRole.includes('prosecutor') ? 'Your Client' : 'Opposing Party',
+                defendant: formData.userRole.includes('defendant') || formData.userRole.includes('defense') ? 'Your Client' : 'Opposing Party',
+                userRole: formData.userRole,
+                keyArguments: formData.keyArguments ? formData.keyArguments.split(',').map(arg => arg.trim()) : [],
+                damages: 'To be determined',
+                court: 'Practice Court',
+                caseNumber: `PC-${Date.now()}`
+            };
+
+            // Create practice configuration
+            const practiceConfig = {
+                caseType: formData.caseType,
+                specificIssue: formData.specificIssue,
+                caseSummary: formData.caseSummary,
+                opponentExperience: formData.opponentExperience,
+                opponentStyle: formData.opponentStyle,
+                opponentStrengths: formData.opponentStrengths,
+                difficultyLevel: formData.difficultyLevel,
+                judgeStrictness: formData.judgeStrictness,
+                timePressure: formData.timePressure,
+                userRole: formData.userRole,
+                keyArguments: formData.keyArguments
+            };
+
+            // Store the practice session configuration
+            sessionStorage.setItem('practiceConfig', JSON.stringify(practiceConfig));
+
+            // Create new case
+            createNewCase(caseDetails, practiceConfig).then(() => {
+                // Show confirmation message from system assistant, not AI lawyer
+                addMessage('assistant', `🎯 **New Case Created Successfully!**
+
+📋 **Case Details:**
+- **Title:** ${caseDetails.caseTitle}
+- **Type:** ${formData.caseType}
+- **Issue:** ${formData.specificIssue}
+- **Your Role:** ${formData.userRole}
+
+👨‍💼 **Opponent Profile:**
+- **Experience:** ${formData.opponentExperience}
+- **Style:** ${formData.opponentStyle}
+- **Strengths:** ${formData.opponentStrengths}
+
+🎯 **Practice Settings:**
+- **Difficulty:** ${formData.difficultyLevel}
+- **Judge Strictness:** ${formData.judgeStrictness}
+- **Time Pressure:** ${formData.timePressure}
+
+The AI judge has provided opening remarks. You can now begin your case presentation!`);
+
+                // Switch to chat interface
+                showChatInterface();
+                updateInputContext('chat');
+            });
+        }
+
+        // File Upload Handling
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Show upload progress
+            addMessage('user', `📄 Uploading: ${file.name}`);
+            
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Add optional metadata if available
+            const caseName = document.getElementById('caseName')?.value;
+            const court = document.getElementById('court')?.value;
+            const judgementDate = document.getElementById('judgementDate')?.value;
+            const tags = document.getElementById('tags')?.value;
+
+            if (caseName) formData.append('case_name', caseName);
+            if (court) formData.append('court', court);
+            if (judgementDate) formData.append('judgement_date', judgementDate);
+            if (tags) formData.append('tags', tags);
+
+            fetch('/ai-court/api/upload_case_materials', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (response.ok) {
+                    addMessage('assistant', `✅ Successfully uploaded "${file.name}"! 
+                    
+📋 Document processed and indexed for debate use. The AI lawyer and judge will now have access to this legal material when analyzing your arguments.
+
+💡 <strong>Tip:</strong> You can now start your legal debate. The AI will reference relevant parts of this document when challenging your arguments.`);
+                } else {
+                    addMessage('assistant', `❌ Failed to upload "${file.name}": ${data.detail || 'Unknown error'}`);
+                }
+            })
+            .catch(error => {
+                addMessage('assistant', `❌ Error uploading "${file.name}": ${error.message}`);
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load case history
+            loadCaseHistory();
+            
+            // Load saved draft
+            loadSavedDraft();
+            
+            // Auto-resize input on load
+            const input = document.getElementById('chatInput');
+            autoResize(input);
+            
+            // Show welcome screen with case options
+            showWelcomeScreen();
+            
+            // Add keyboard shortcuts
+            document.addEventListener('keydown', function(e) {
+                // Ctrl/Cmd + Enter to submit
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    sendMessage();
+                }
+                
+                // Ctrl/Cmd + S to save draft
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                    e.preventDefault();
+                    saveDraft();
+                }
+                
+                // Ctrl/Cmd + K to clear
+                if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                    e.preventDefault();
+                    clearInput();
+                }
+            });
+        });
+
+        function showWelcomeScreen() {
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = `
+                <div class="message assistant">
+                    <div class="message-avatar">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="message-content">
+                        <div class="message-bubble">
+                            <div class="message-header">
+                                <span class="message-role">LegalAI Assistant</span>
+                                <span class="message-time">Just now</span>
+                            </div>
+                            <div class="message-text">
+                                <h3>⚖️ Welcome to LegalAI Practice Court</h3>
+                                <p>Your advanced legal practice simulation with AI-powered opposition counsel and judicial oversight.</p>
+                                
+                                <div style="margin: 20px 0;">
+                                    <h4>🎯 Choose Your Practice Session:</h4>
+                                    
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px;">
+                                        <div style="
+                                            background: var(--bg-tertiary);
+                                            border: 1px solid var(--border-color);
+                                            border-radius: 12px;
+                                            padding: 20px;
+                                            cursor: pointer;
+                                            transition: all 0.2s;
+                                        " onclick="showCaseSetupForm()">
+                                            <h5 style="margin: 0 0 12px 0; color: var(--accent-primary);">🚀 New Case</h5>
+                                            <p style="margin: 0; color: var(--text-secondary); font-size: 14px;">
+                                                Start a fresh legal practice session with custom case configuration
+                                            </p>
+                                        </div>
+                                        
+                                        <div style="
+                                            background: var(--bg-tertiary);
+                                            border: 1px solid var(--border-color);
+                                            border-radius: 12px;
+                                            padding: 20px;
+                                            cursor: pointer;
+                                            transition: all 0.2s;
+                                        " onclick="showChatInterface()">
+                                            <h5 style="margin: 0 0 12px 0; color: var(--accent-success);">⚖️ Live Court</h5>
+                                            <p style="margin: 0; color: var(--text-secondary); font-size: 14px;">
+                                                Start immediate legal debate with AI opposition and judicial oversight
+                                            </p>
+                                        </div>
+                                        
+                                        <div style="
+                                            background: var(--bg-tertiary);
+                                            border: 1px solid var(--border-color);
+                                            border-radius: 12px;
+                                            padding: 20px;
+                                            cursor: pointer;
+                                            transition: all 0.2s;
+                                        " onclick="showDebateHistory()">
+                                            <h5 style="margin: 0 0 12px 0; color: var(--accent-info);">📚 Case History</h5>
+                                            <p style="margin: 0; color: var(--text-secondary); font-size: 14px;">
+                                                Browse and continue previous case sessions
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div style="margin-top: 20px; padding: 15px; background: var(--bg-tertiary); border-radius: 8px; border-left: 4px solid var(--accent-warning);">
+                                    <h4>⚖️ Multi-Agent Court System</h4>
+                                    <p style="margin: 8px 0; font-size: 14px;">
+                                        <span style="color: #3b82f6;">🔵 <strong>You (Human Lawyer):</strong></span> Present your case and arguments<br>
+                                        <span style="color: #10b981;">🟢 <strong>AI Lawyer (Opposition):</strong></span> Will challenge your arguments<br>
+                                        <span style="color: #f59e0b;">🟡 <strong>AI Judge:</strong></span> Will provide judicial oversight and rulings
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            updateInputContext('welcome');
+        }
+
+        function renderMarkdown(text) {
+            // Convert markdown to HTML with proper legal term styling
+            return text
+                // Bold text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                // Italic text
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                // Legal sections with proper styling (not code blocks)
+                .replace(/`([^`]+)`/g, '<strong style="color: var(--accent-primary);">$1</strong>')
+                // Headers
+                .replace(/^### (.*$)/gim, '<h3 style="margin: 16px 0 8px 0; color: var(--text-primary);">$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2 style="margin: 20px 0 12px 0; color: var(--text-primary);">$1</h2>')
+                .replace(/^# (.*$)/gim, '<h1 style="margin: 24px 0 16px 0; color: var(--text-primary);">$1</h1>')
+                // Lists
+                .replace(/^- (.*$)/gim, '<li style="margin: 4px 0;">$1</li>')
+                .replace(/(<li.*<\/li>)/s, '<ul style="margin: 8px 0; padding-left: 20px;">$1</ul>')
+                // Line breaks
+                .replace(/\n/g, '<br>');
+        }
+
+        // Legal Tools Functions
+        function toggleResearchMode() {
+            const btn = document.getElementById('researchModeBtn');
+            btn.classList.toggle('active');
+            if (btn.classList.contains('active')) {
+                addMessage('assistant', '🔍 **Research Mode Activated**\n\nYou can now ask for legal research assistance. The AI will search through case law and precedents to support your arguments.');
+            }
+        }
+
+        function toggleCitationMode() {
+            const btn = document.getElementById('citationModeBtn');
+            btn.classList.toggle('active');
+            if (btn.classList.contains('active')) {
+                addMessage('assistant', '📚 **Citation Mode Activated**\n\nYour arguments will now include proper legal citations and references to relevant case law.');
+            }
+        }
+
+        function showLegalTemplates() {
+            const templates = [
+                'Objection: "Objection, Your Honor. This evidence is hearsay and lacks proper foundation."',
+                'Opening Statement: "May it please the court, I represent [client name] in this matter..."',
+                'Cross-Examination: "Isn\'t it true that on [date], you stated [contradictory statement]?"',
+                'Closing Argument: "Ladies and gentlemen of the jury, the evidence clearly shows..."',
+                'Motion to Dismiss: "Your Honor, we move to dismiss this case for lack of jurisdiction."',
+                'Evidence Submission: "Your Honor, I submit this [document] as Exhibit A, supporting our claim that [purpose and relevance]."',
+                'Evidence Objection: "Objection, Your Honor. This evidence is not relevant to the issues in this case."',
+                'Request for Ruling: "Your Honor, we request a ruling on the admissibility of this evidence."'
+            ];
+            
+            const templateList = templates.map(template => `• ${template}`).join('\n');
+            addMessage('assistant', `📋 **Legal Templates Available**\n\n${templateList}\n\nClick any template to insert it into your input.`);
+        }
+
+        function showEvidenceSubmissionGuide() {
+            const examples = [
+                {
+                    type: 'Medical Report',
+                    example: 'Your Honor, I submit this medical report as Exhibit A, supporting our claim that the plaintiff suffered severe injuries as a result of the defendant\'s negligence.'
+                },
+                {
+                    type: 'CCTV Footage',
+                    example: 'Your Honor, I submit this CCTV footage as Exhibit B, demonstrating that the defendant was present at the scene at the time of the incident.'
+                },
+                {
+                    type: 'Contract Document',
+                    example: 'Your Honor, I submit this contract as Exhibit C, establishing the terms of the agreement between the parties and the defendant\'s breach thereof.'
+                },
+                {
+                    type: 'Witness Statement',
+                    example: 'Your Honor, I submit this witness statement as Exhibit D, corroborating our client\'s version of events and contradicting the defendant\'s testimony.'
+                },
+                {
+                    type: 'Financial Records',
+                    example: 'Your Honor, I submit these financial records as Exhibit E, showing the extent of damages suffered by our client as a result of the defendant\'s actions.'
+                }
+            ];
+            
+            const examplesList = examples.map(ex => `**${ex.type}:**\n"${ex.example}"`).join('\n\n');
+            
+            addMessage('assistant', `📋 **Evidence Submission Guide**\n\n${examplesList}\n\n**Key Elements:**
+1. Address the court: "Your Honor, I submit..."
+2. Identify the document: "this [document type] as Exhibit [letter]"
+3. Explain purpose: "supporting our claim that..."
+4. State relevance: "demonstrating that..." or "establishing that..."
+
+**Remember:** Always explain the purpose and relevance of evidence to the case.`);
+        }
+
+        function showObjectionGuide() {
+            const objections = [
+                '**Hearsay**: "Objection, Your Honor. This is hearsay and lacks proper foundation."',
+                '**Relevance**: "Objection, Your Honor. This evidence is not relevant to the issues in this case."',
+                '**Leading**: "Objection, Your Honor. Counsel is leading the witness."',
+                '**Speculation**: "Objection, Your Honor. The witness is speculating beyond their personal knowledge."',
+                '**Character Evidence**: "Objection, Your Honor. This is improper character evidence."',
+                '**Privilege**: "Objection, Your Honor. This information is protected by attorney-client privilege."'
+            ];
+            
+            const objectionList = objections.join('\n\n');
+            addMessage('assistant', `⚖️ **Common Objections Guide**\n\n${objectionList}\n\nUse these objections when the opposing party presents improper evidence or testimony.`);
+        }
+
+        function attachDocument() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.pdf,.doc,.docx,.txt';
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    // Don't automatically accept the document
+                    // Instead, guide the user on proper evidence submission
+                    addMessage('assistant', `📎 **Document Attached: ${file.name}**
+
+⚖️ **Proper Evidence Submission Required**
+
+To properly introduce this document as evidence, please include a statement explaining its purpose and relevance, such as:
+
+**Example:**
+"Your Honor, I submit this ${file.name} as Exhibit A, supporting our claim that [specific purpose and relevance to the case]."
+
+**Proper Format:**
+- Address the court: "Your Honor, I submit..."
+- Identify the document: "this ${file.name} as Exhibit [letter/number]"
+- Explain purpose: "supporting our claim that..."
+- State relevance: "demonstrating that..."
+
+Please provide the proper introduction for this document.`);
+                }
+            };
+            input.click();
+        }
+
+        function startVoiceInput() {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
+                
+                recognition.onstart = function() {
+                    addMessage('assistant', '🎤 **Voice Input Active**\n\nPlease speak your legal argument clearly. Click the microphone again to stop recording.');
+                };
+                
+                recognition.onresult = function(event) {
+                    const transcript = event.results[0][0].transcript;
+                    document.getElementById('chatInput').value = transcript;
+                    autoResize(document.getElementById('chatInput'));
+                };
+                
+                recognition.onerror = function(event) {
+                    addMessage('assistant', '❌ Voice input error. Please try typing your argument instead.');
+                };
+                
+                recognition.start();
+            } else {
+                addMessage('assistant', '❌ Voice input is not supported in your browser. Please type your argument.');
+            }
+        }
+
+        function showLegalDictionary() {
+            const legalTerms = {
+                'Habeas Corpus': 'A writ requiring a person to be brought before a judge or court',
+                'Pro Bono': 'Legal work done without charge, especially for indigent clients',
+                'Res Ipsa Loquitur': 'The thing speaks for itself - a doctrine of negligence',
+                'Stare Decisis': 'The legal principle of determining points in litigation according to precedent',
+                'Subpoena': 'A writ ordering a person to attend a court',
+                'Voir Dire': 'The process of questioning potential jurors',
+                'Burden of Proof': 'The obligation to prove one\'s assertion',
+                'Prima Facie': 'At first sight - sufficient to establish a fact or raise a presumption'
+            };
+            
+            const termsList = Object.entries(legalTerms)
+                .map(([term, definition]) => `**${term}**: ${definition}`)
+                .join('\n\n');
+            
+            addMessage('assistant', `📖 **Legal Dictionary**\n\n${termsList}\n\nUse these terms appropriately in your legal arguments.`);
+        }
+
+        function clearInput() {
+            document.getElementById('chatInput').value = '';
+            autoResize(document.getElementById('chatInput'));
+        }
+
+        function saveDraft() {
+            const input = document.getElementById('chatInput');
+            const draft = input.value.trim();
+            
+            if (draft) {
+                const drafts = JSON.parse(localStorage.getItem('legalDrafts') || '[]');
+                drafts.push({
+                    text: draft,
+                    timestamp: new Date().toISOString(),
+                    caseId: currentCaseId || 'general'
+                });
+                localStorage.setItem('legalDrafts', JSON.stringify(drafts));
+                
+                addMessage('assistant', '💾 **Draft Saved**\n\nYour argument has been saved as a draft. You can retrieve it later from the drafts section.');
+                input.value = '';
+                autoResize(input);
+            } else {
+                addMessage('assistant', '❌ No text to save. Please type your argument first.');
+            }
+        }
+
+        // Auto-save functionality
+        let autoSaveTimeout;
+        let isRecording = false;
+        let recognition = null;
+
+        function handleAutoSave(textarea) {
+            const indicator = document.getElementById('autoSaveIndicator');
+            const text = document.getElementById('autoSaveText');
+            
+            // Clear existing timeout
+            clearTimeout(autoSaveTimeout);
+            
+            // Show saving indicator
+            indicator.classList.add('visible', 'saving');
+            text.textContent = 'Saving...';
+            
+            // Set timeout for auto-save
+            autoSaveTimeout = setTimeout(() => {
+                // Save to localStorage
+                const currentText = textarea.value;
+                if (currentText.trim()) {
+                    localStorage.setItem('legalDraft', currentText);
+                    localStorage.setItem('legalDraftTimestamp', new Date().toISOString());
+                    
+                    // Show saved indicator
+                    indicator.classList.remove('saving');
+                    indicator.classList.add('saved');
+                    text.textContent = 'Draft saved';
+                    
+                    // Hide after 3 seconds
+                    setTimeout(() => {
+                        indicator.classList.remove('visible', 'saved');
+                    }, 3000);
+                }
+            }, 1000); // Save after 1 second of inactivity
+        }
+
+        // Enhanced voice input with recording animation
+        function toggleVoiceInput() {
+            const voiceBtn = document.getElementById('voiceBtn');
+            
+            if (isRecording) {
+                stopVoiceRecording();
+            } else {
+                startVoiceRecording();
+            }
+        }
+
+        function startVoiceRecording() {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
+                
+                const voiceBtn = document.getElementById('voiceBtn');
+                voiceBtn.classList.add('recording');
+                
+                recognition.onstart = function() {
+                    isRecording = true;
+                    addMessage('assistant', '🎤 **Voice Recording Active**\n\nPlease speak your legal argument clearly. Click the microphone again to stop recording.');
+                };
+                
+                recognition.onresult = function(event) {
+                    const transcript = event.results[0][0].transcript;
+                    const input = document.getElementById('chatInput');
+                    input.value = transcript;
+                    autoResize(input);
+                    handleAutoSave(input);
+                };
+                
+                recognition.onerror = function(event) {
+                    stopVoiceRecording();
+                    addMessage('assistant', '❌ Voice input error. Please try typing your argument instead.');
+                };
+                
+                recognition.onend = function() {
+                    stopVoiceRecording();
+                };
+                
+                recognition.start();
+            } else {
+                addMessage('assistant', '❌ Voice input is not supported in your browser. Please type your argument.');
+            }
+        }
+
+        function stopVoiceRecording() {
+            if (recognition) {
+                recognition.stop();
+            }
+            
+            const voiceBtn = document.getElementById('voiceBtn');
+            voiceBtn.classList.remove('recording');
+            isRecording = false;
+        }
+
+        // AI Suggestion Generator
+        async function generateAISuggestion() {
+            const input = document.getElementById('chatInput');
+            const currentText = input.value.trim();
+            const aiSuggestBtn = document.getElementById('aiSuggestBtn');
+            
+            if (!currentText) {
+                addMessage('assistant', '💡 **AI Suggestion**\n\nPlease type a brief description of your legal argument or question first, then click "AI Suggest" to get AI-generated suggestions.');
+                return;
+            }
+            
+            // Disable button and show loading
+            aiSuggestBtn.disabled = true;
+            aiSuggestBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+            
+            try {
+                // Get practice config for context
+                const practiceConfig = sessionStorage.getItem('practiceConfig');
+                const config = practiceConfig ? JSON.parse(practiceConfig) : null;
+                
+                const requestBody = {
+                    human_input: `Generate a legal argument suggestion for: ${currentText}`,
+                    debate_history: [],
+                    suggestion_request: true
+                };
+                
+                if (config) {
+                    requestBody.practice_config = config;
+                }
+                
+                const response = await fetch('/ai-court/api/debate_turn', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data.ai_lawyer_response) {
+                        addMessage('assistant', `💡 **AI Suggestion Generated**\n\n${data.ai_lawyer_response}\n\nYou can copy and modify this suggestion for your argument.`);
+                    } else {
+                        addMessage('assistant', '💡 **AI Suggestion**\n\nUnable to generate suggestion at this time. Please try again or continue with your own argument.');
+                    }
+                } else {
+                    throw new Error('Failed to generate suggestion');
+                }
+            } catch (error) {
+                console.error('Error generating AI suggestion:', error);
+                addMessage('assistant', '💡 **AI Suggestion**\n\nUnable to generate suggestion at this time. Please try again or continue with your own argument.');
+            } finally {
+                // Re-enable button
+                aiSuggestBtn.disabled = false;
+                aiSuggestBtn.innerHTML = '<i class="fas fa-magic"></i> AI Suggest';
+            }
+        }
+
+        // Load saved draft on page load
+        function loadSavedDraft() {
+            const savedDraft = localStorage.getItem('legalDraft');
+            const savedTimestamp = localStorage.getItem('legalDraftTimestamp');
+            
+            if (savedDraft && savedTimestamp) {
+                const input = document.getElementById('chatInput');
+                input.value = savedDraft;
+                autoResize(input);
+                
+                // Show indicator that draft was loaded
+                const indicator = document.getElementById('autoSaveIndicator');
+                const text = document.getElementById('autoSaveText');
+                indicator.classList.add('visible', 'saved');
+                text.textContent = 'Draft loaded';
+                
+                setTimeout(() => {
+                    indicator.classList.remove('visible', 'saved');
+                }, 3000);
+            }
+        }
+
+        // Enhanced Case Management Functions
+        function generateCustomTitle(caseItem) {
+            // Generate a more descriptive title based on case details
+            const type = caseItem.caseType;
+            const issue = caseItem.specificIssue;
+            const role = caseItem.userRole;
+            
+            // Create a more human-readable title
+            let title = '';
+            
+            if (type === 'criminal') {
+                title = `Criminal Case - ${issue}`;
+            } else if (type === 'civil') {
+                title = `Civil Dispute - ${issue}`;
+            } else if (type === 'family') {
+                title = `Family Law - ${issue}`;
+            } else if (type === 'contract') {
+                title = `Contract Dispute - ${issue}`;
+            } else if (type === 'property') {
+                title = `Property Case - ${issue}`;
+            } else {
+                title = `${type.charAt(0).toUpperCase() + type.slice(1)} - ${issue}`;
+            }
+            
+            // Add role context
+            if (role.includes('plaintiff') || role.includes('prosecutor')) {
+                title += ` (Prosecution)`;
+            } else if (role.includes('defendant') || role.includes('defense')) {
+                title += ` (Defense)`;
+            }
+            
+            return title;
+        }
+
+        function calculateProgress(caseItem) {
+            // Calculate progress based on case activity
+            // This is a simplified calculation - in a real app, you'd track actual progress
+            const created = new Date(caseItem.createdAt);
+            const modified = new Date(caseItem.lastModified);
+            const now = new Date();
+            
+            // Base progress on time since creation and activity
+            const daysSinceCreation = (now - created) / (1000 * 60 * 60 * 24);
+            const daysSinceModified = (now - modified) / (1000 * 60 * 60 * 24);
+            
+            let progress = 0;
+            
+            if (caseItem.status === 'active') {
+                progress = Math.min(75, daysSinceCreation * 5); // 5% per day, max 75%
+            } else if (caseItem.status === 'paused') {
+                progress = Math.min(50, daysSinceCreation * 3); // 3% per day, max 50%
+            } else if (caseItem.status === 'closed') {
+                progress = 100;
+            }
+            
+            // Add bonus for recent activity
+            if (daysSinceModified < 1) {
+                progress += 10;
+            } else if (daysSinceModified < 7) {
+                progress += 5;
+            }
+            
+            return Math.min(100, Math.max(0, Math.round(progress)));
+        }
+
+        function generateTags(caseItem) {
+            const tags = [];
+            
+            // Add priority tag based on status
+            if (caseItem.status === 'active') {
+                tags.push('<span class="case-tag">Active</span>');
+            }
+            
+            // Add type tag
+            tags.push(`<span class="case-tag">${caseItem.caseType}</span>`);
+            
+            // Add role tag
+            if (caseItem.userRole.includes('plaintiff') || caseItem.userRole.includes('prosecutor')) {
+                tags.push('<span class="case-tag">Prosecution</span>');
+            } else {
+                tags.push('<span class="case-tag">Defense</span>');
+            }
+            
+            // Add urgency tag based on modification date
+            const modified = new Date(caseItem.lastModified);
+            const now = new Date();
+            const daysSinceModified = (now - modified) / (1000 * 60 * 60 * 24);
+            
+            if (daysSinceModified < 1) {
+                tags.push('<span class="case-tag" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.2);">Recent</span>');
+            }
+            
+            return tags.join('');
+        }
+
+        function generateStats(caseItem) {
+            const stats = [];
+            
+            // Document count (simulated)
+            const docCount = Math.floor(Math.random() * 5) + 1;
+            stats.push(`
+                <div class="stat-item">
+                    <i class="fas fa-file-alt"></i>
+                    <span>${docCount} docs</span>
+                </div>
+            `);
+            
+            // Session count (simulated)
+            const sessionCount = Math.floor(Math.random() * 10) + 1;
+            stats.push(`
+                <div class="stat-item">
+                    <i class="fas fa-comments"></i>
+                    <span>${sessionCount} sessions</span>
+                </div>
+            `);
+            
+            // Time spent (simulated)
+            const timeSpent = Math.floor(Math.random() * 120) + 30;
+            stats.push(`
+                <div class="stat-item">
+                    <i class="fas fa-clock"></i>
+                    <span>${timeSpent} min</span>
+                </div>
+            `);
+            
+            return stats.join('');
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffTime = Math.abs(now - date);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 1) {
+                return 'Today';
+            } else if (diffDays === 2) {
+                return 'Yesterday';
+            } else if (diffDays <= 7) {
+                return `${diffDays - 1} days ago`;
+            } else {
+                return date.toLocaleDateString();
+            }
+        }
+
+        // Filtering and Search Functions
+        function filterCases() {
+            const searchTerm = document.getElementById('caseSearch').value.toLowerCase();
+            const cards = document.querySelectorAll('.case-card');
+            
+            cards.forEach(card => {
+                const title = card.querySelector('.case-title').textContent.toLowerCase();
+                const subtitle = card.querySelector('.case-subtitle').textContent.toLowerCase();
+                const matches = title.includes(searchTerm) || subtitle.includes(searchTerm);
+                
+                card.style.display = matches ? 'block' : 'none';
+            });
+        }
+
+        function filterByStatus(status) {
+            // Update active filter button
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            const cards = document.querySelectorAll('.case-card');
+            
+            cards.forEach(card => {
+                const cardStatus = card.getAttribute('data-status');
+                const matches = status === 'all' || cardStatus === status;
+                
+                card.style.display = matches ? 'block' : 'none';
+            });
+        }
+
+        // Case Management Actions
+        function editCase(caseId) {
+            addMessage('assistant', `✏️ **Edit Case**\n\nEditing case ${caseId}. This feature will allow you to modify case details, add notes, and update settings.`);
+            // TODO: Implement case editing functionality
+        }
+
+        function duplicateCase(caseId) {
+            addMessage('assistant', `📋 **Duplicate Case**\n\nCreating a copy of case ${caseId}. This will create a new case with the same settings but a fresh session.`);
+            // TODO: Implement case duplication functionality
+        }
+
+        function exportCase(caseId) {
+            addMessage('assistant', `📤 **Export Case**\n\nExporting case ${caseId}. This will generate a comprehensive report including all arguments, evidence, and session history.`);
+            // TODO: Implement case export functionality
+        }
+
+        function deleteCase(caseId) {
+            if (confirm('Are you sure you want to delete this case? This action cannot be undone.')) {
+                addMessage('assistant', `🗑️ **Delete Case**\n\nCase ${caseId} has been deleted.`);
+                // TODO: Implement case deletion functionality
+                
+                // Remove the card from the UI
+                const card = document.querySelector(`[data-case-id="${caseId}"]`);
+                if (card) {
+                    card.style.animation = 'fadeOut 0.3s ease-out';
+                    setTimeout(() => card.remove(), 300);
+                }
+            }
+        }
+
+        // Context-Aware Input Management
+        let currentScreen = 'welcome'; // welcome, chat, case-setup, case-history
+
+        function showInputArea() {
+            const inputContainer = document.querySelector('.input-container');
+            const quickActionBar = document.getElementById('quickActionBar');
+            
+            inputContainer.classList.remove('hidden', 'minimized');
+            quickActionBar.classList.remove('visible');
+            currentScreen = 'chat';
+        }
+
+        function hideInputArea() {
+            const inputContainer = document.querySelector('.input-container');
+            const quickActionBar = document.getElementById('quickActionBar');
+            
+            inputContainer.classList.add('hidden');
+            quickActionBar.classList.add('visible');
+        }
+
+        function minimizeInputArea() {
+            const inputContainer = document.querySelector('.input-container');
+            const quickActionBar = document.getElementById('quickActionBar');
+            
+            inputContainer.classList.add('minimized');
+            quickActionBar.classList.remove('visible');
+        }
+
+        function updateInputContext(screen) {
+            currentScreen = screen;
+            
+            switch(screen) {
+                case 'welcome':
+                    hideInputArea();
+                    break;
+                case 'chat':
+                    showInputArea();
+                    break;
+                case 'case-setup':
+                    hideInputArea();
+                    break;
+                case 'case-history':
+                    hideInputArea();
+                    break;
+                case 'upload':
+                    hideInputArea();
+                    break;
+                default:
+                    hideInputArea();
+            }
+        }
+
+        // Voice Functions
+        async function synthesizeSpeech(text, role) {
+            try {
+                const response = await fetch('/ai-court/api/synthesize_speech', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        role: role,
+                        language: 'en'
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    return result.audio_url;
+                } else {
+                    console.error('Speech synthesis failed:', response.statusText);
+                    return null;
+                }
+            } catch (error) {
+                console.error('Speech synthesis error:', error);
+                return null;
+            }
+        }
+
+        function playAudio(audioUrl) {
+            const audio = new Audio(audioUrl);
+            audio.play().catch(error => {
+                console.error('Audio playback failed:', error);
+            });
+        }
+
+        async function transcribeAudio(audioBlob) {
+            try {
+                const formData = new FormData();
+                
+                // Determine the correct filename based on the blob type
+                let filename = 'recording.wav';
+                if (audioBlob.type.includes('webm')) {
+                    filename = 'recording.webm';
+                } else if (audioBlob.type.includes('mp3')) {
+                    filename = 'recording.mp3';
+                }
+                
+                formData.append('file', audioBlob, filename);
+                
+                const response = await fetch('/ai-court/api/transcribe_audio', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('📝 Transcription result:', result);
+                    return result.transcript;
+                } else {
+                    console.error('Transcription failed:', response.statusText);
+                    return null;
+                }
+            } catch (error) {
+                console.error('Transcription error:', error);
+                return null;
+            }
+        }
+
+        // Voice Recording and Auto-Playback
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isAutoVoiceMode = false;
+        let currentAudio = null;
+
+        // Auto voice mode toggle - One-click courtroom experience
+        function toggleAutoVoiceMode() {
+            isAutoVoiceMode = !isAutoVoiceMode;
+            const autoVoiceBtn = document.getElementById('autoVoiceBtn');
+            
+            if (isAutoVoiceMode) {
+                autoVoiceBtn.classList.add('active');
+                autoVoiceBtn.innerHTML = '<i class="fas fa-gavel"></i> Court in Session';
+                autoVoiceBtn.onclick = disableAutoVoiceMode; // Change to disable function
+                autoVoiceBtn.title = 'Click to disable AI voice court';
+                
+                // Start the courtroom experience
+                startCourtroomSession();
+                addMessage('system', '⚖️ **COURT IS NOW IN SESSION**\n\n🎤 **Automatic Voice Courtroom Activated**\n\nYou may now present your case. Speak naturally and the court will respond automatically.\n\n- Your voice will be automatically transcribed and submitted\n- AI Judge and AI Lawyer will respond with voice\n- No manual interaction required\n- Speak when ready to present your argument\n\n💡 **To stop the AI court, click the "Court in Session" button**');
+            } else {
+                autoVoiceBtn.classList.remove('active');
+                autoVoiceBtn.innerHTML = '<i class="fas fa-microphone"></i> Enable AI Court';
+                autoVoiceBtn.onclick = toggleAutoVoiceMode; // Restore original function
+                autoVoiceBtn.title = 'Enable automatic voice recording and AI response playback';
+                stopCourtroomSession();
+                addMessage('system', '🔇 **Court Session Ended**\n\nManual mode restored. You can now type your arguments or re-enable the AI courtroom.');
+            }
+        }
+
+        // Function to disable AI voice court
+        function disableAutoVoiceMode() {
+            isAutoVoiceMode = false;
+            const autoVoiceBtn = document.getElementById('autoVoiceBtn');
+            
+            autoVoiceBtn.classList.remove('active');
+            autoVoiceBtn.innerHTML = '<i class="fas fa-microphone"></i> Enable AI Court';
+            autoVoiceBtn.onclick = toggleAutoVoiceMode; // Restore original function
+            autoVoiceBtn.title = 'Enable automatic voice recording and AI response playback';
+            
+            // Stop all voice activities
+            stopCourtroomSession();
+            
+            // Stop any currently playing audio
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+            
+            // Cancel any ongoing speech synthesis
+            if (speechSynthesis) {
+                speechSynthesis.cancel();
+            }
+            
+            addMessage('system', '🔇 **AI VOICE COURT DISABLED**\n\n✅ **All voice activities stopped**\n\n- Voice recording disabled\n- AI voice responses stopped\n- Manual mode restored\n\nYou can now type your arguments or re-enable the AI courtroom when ready.');
+        }
+
+        // Courtroom session management
+        function startCourtroomSession() {
+            // Add courtroom atmosphere
+            document.body.classList.add('courtroom-active');
+            
+            // Start continuous voice monitoring
+            startContinuousVoiceMonitoring();
+            
+            // Show courtroom status
+            updateCourtroomStatus('Court in Session - Speak to Present Your Case');
+            
+            // Show voice court controls
+            const voiceControls = document.getElementById('voiceCourtControls');
+            if (voiceControls) {
+                voiceControls.style.display = 'flex';
+            }
+        }
+
+        function stopCourtroomSession() {
+            document.body.classList.remove('courtroom-active');
+            stopContinuousVoiceMonitoring();
+            updateCourtroomStatus('Court Ready');
+            
+            // Stop any ongoing voice processing
+            isProcessingVoice = false;
+            
+            // Stop any active recording
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+            }
+            
+            // Hide voice activity indicator
+            const voiceActivity = document.getElementById('voiceActivity');
+            if (voiceActivity) {
+                voiceActivity.classList.remove('active');
+            }
+            
+            // Hide voice court controls
+            const voiceControls = document.getElementById('voiceCourtControls');
+            if (voiceControls) {
+                voiceControls.style.display = 'none';
+            }
+            
+            console.log('🔇 Courtroom session stopped - all voice activities disabled');
+        }
+
+        function updateCourtroomStatus(status) {
+            const statusElement = document.getElementById('courtroomStatus');
+            if (statusElement) {
+                statusElement.textContent = status;
+                statusElement.classList.add('active');
+            }
+        }
+
+        // Continuous voice monitoring for realistic courtroom experience
+        let voiceStream = null;
+        let voiceProcessor = null;
+        let isProcessingVoice = false;
+
+        async function startContinuousVoiceMonitoring() {
+            try {
+                voiceStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                });
+                
+                // Create audio context for voice detection
+                const audioContext = new AudioContext();
+                const source = audioContext.createMediaStreamSource(voiceStream);
+                const processor = audioContext.createScriptProcessor(4096, 1, 1);
+                
+                let silenceTimer = null;
+                let audioChunks = [];
+                let isRecording = false;
+                
+                processor.onaudioprocess = (event) => {
+                    const inputData = event.inputBuffer.getChannelData(0);
+                    const volume = Math.sqrt(inputData.reduce((sum, sample) => sum + sample * sample, 0) / inputData.length);
+                    
+                    // Detect speech (volume threshold)
+                    if (volume > 0.01 && !isRecording && !isProcessingVoice) {
+                        // Speech detected - start recording
+                        isRecording = true;
+                        audioChunks = [];
+                        console.log('🎤 Speech detected - starting recording');
+                        
+                        // Show voice activity indicator
+                        const voiceActivity = document.getElementById('voiceActivity');
+                        if (voiceActivity) {
+                            voiceActivity.classList.add('active');
+                        }
+                        
+                        // Clear any existing silence timer
+                        if (silenceTimer) {
+                            clearTimeout(silenceTimer);
+                            silenceTimer = null;
+                        }
+                        
+                        // Start MediaRecorder for this speech segment
+                        startSpeechRecording();
+                        
+                    } else if (volume <= 0.01 && isRecording) {
+                        // Silence detected - stop recording after delay
+                        if (!silenceTimer) {
+                            silenceTimer = setTimeout(() => {
+                                if (isRecording) {
+                                    isRecording = false;
+                                    stopSpeechRecording();
+                                    console.log('🔇 Silence detected - stopping recording');
+                                    
+                                    // Hide voice activity indicator
+                                    const voiceActivity = document.getElementById('voiceActivity');
+                                    if (voiceActivity) {
+                                        voiceActivity.classList.remove('active');
+                                    }
+                                }
+                            }, 2000); // 2 seconds of silence to stop recording
+                        }
+                    }
+                };
+                
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+                voiceProcessor = processor;
+                
+                console.log('🎤 Continuous voice monitoring started');
+                updateCourtroomStatus('Listening for your argument...');
+                
+            } catch (error) {
+                console.error('Continuous voice monitoring failed:', error);
+                addMessage('system', '❌ **Voice Monitoring Error**\n\nPlease check microphone permissions and try again.');
+            }
+        }
+
+        function stopContinuousVoiceMonitoring() {
+            if (voiceProcessor) {
+                voiceProcessor.disconnect();
+                voiceProcessor = null;
+            }
+            if (voiceStream) {
+                voiceStream.getTracks().forEach(track => track.stop());
+                voiceStream = null;
+            }
+            console.log('🔇 Continuous voice monitoring stopped');
+        }
+
+        async function startSpeechRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        sampleRate: 16000,
+                        channelCount: 1
+                    }
+                });
+                
+                // Try to use WAV format for better compatibility with Whisper
+                let mimeType = 'audio/wav';
+                if (!MediaRecorder.isTypeSupported('audio/wav')) {
+                    mimeType = 'audio/webm;codecs=opus';
+                }
+                if (!MediaRecorder.isTypeSupported(mimeType)) {
+                    mimeType = 'audio/webm';
+                }
+                
+                mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+                
+                mediaRecorder.onstop = async () => {
+                    if (audioChunks.length > 0) {
+                        const audioBlob = new Blob(audioChunks, { type: mimeType });
+                        await processSpeechInput(audioBlob);
+                    }
+                    stream.getTracks().forEach(track => track.stop());
+                };
+                
+                mediaRecorder.start();
+                isRecording = true;
+                updateCourtroomStatus('Recording your argument...');
+                
+            } catch (error) {
+                console.error('Speech recording failed:', error);
+            }
+        }
+
+        function stopSpeechRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                updateCourtroomStatus('Processing your argument...');
+            }
+        }
+
+        async function processSpeechInput(audioBlob) {
+            if (isProcessingVoice) return; // Prevent overlapping processing
+            
+            isProcessingVoice = true;
+            updateCourtroomStatus('Transcribing your argument...');
+            
+            try {
+                const transcript = await transcribeAudio(audioBlob);
+                
+                if (transcript && transcript.trim()) {
+                    // Set the input value but don't add message yet
+                    document.getElementById('chatInput').value = transcript;
+                    autoResize(document.getElementById('chatInput'));
+                    
+                    updateCourtroomStatus('AI is preparing response...');
+                    
+                    // Send message (this will add the user message and get AI response)
+                    await sendMessage(true); // true indicates voice input
+                    
+                    updateCourtroomStatus('Listening for your next argument...');
+                } else {
+                    updateCourtroomStatus('Listening for your argument...');
+                }
+                
+            } catch (error) {
+                console.error('Speech processing failed:', error);
+                updateCourtroomStatus('Listening for your argument...');
+            } finally {
+                isProcessingVoice = false;
+            }
+        }
+
+        // Enhanced message display with auto-playback
+        function addMessageWithAutoPlay(role, content, audioUrl = null) {
+            addMessage(role, content, audioUrl);
+            
+            // Auto-play audio for AI responses in auto voice mode
+            if (isAutoVoiceMode && audioUrl && (role === 'assistant' || role === 'judge')) {
+                setTimeout(() => {
+                    playAudioWithVisualFeedback(audioUrl, role);
+                }, 500);
+            }
+        }
+
+        function playAudioWithVisualFeedback(audioUrl, role) {
+            // Stop any currently playing audio
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+            
+            // Create new audio element
+            currentAudio = new Audio(audioUrl);
+            
+            // Add visual feedback
+            const chatMessages = document.getElementById('chatMessages');
+            const lastMessage = chatMessages.lastElementChild;
+            
+            if (lastMessage) {
+                const messageBubble = lastMessage.querySelector('.message-bubble');
+                if (messageBubble) {
+                    messageBubble.style.borderLeft = '4px solid #10b981';
+                    messageBubble.style.animation = 'pulse 1s infinite';
+                }
+            }
+            
+            // Play audio
+            currentAudio.play().then(() => {
+                console.log(`🔊 Playing ${role} audio`);
+                
+                // Remove visual feedback when audio ends
+                currentAudio.onended = () => {
+                    if (lastMessage) {
+                        const messageBubble = lastMessage.querySelector('.message-bubble');
+                        if (messageBubble) {
+                            messageBubble.style.borderLeft = '';
+                            messageBubble.style.animation = '';
+                        }
+                    }
+                    currentAudio = null;
+                };
+                
+            }).catch(error => {
+                console.error('Audio playback failed:', error);
+                // Remove visual feedback on error
+                if (lastMessage) {
+                    const messageBubble = lastMessage.querySelector('.message-bubble');
+                    if (messageBubble) {
+                        messageBubble.style.borderLeft = '';
+                        messageBubble.style.animation = '';
+                    }
+                }
+            });
+        }
+
+        // Manual voice recording (for non-auto mode)
+        async function startVoiceRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        sampleRate: 16000,
+                        channelCount: 1
+                    }
+                });
+                
+                // Try to use WAV format for better compatibility with Whisper
+                let mimeType = 'audio/wav';
+                if (!MediaRecorder.isTypeSupported('audio/wav')) {
+                    mimeType = 'audio/webm;codecs=opus';
+                }
+                if (!MediaRecorder.isTypeSupported(mimeType)) {
+                    mimeType = 'audio/webm';
+                }
+                
+                mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+                
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: mimeType });
+                    const transcript = await transcribeAudio(audioBlob);
+                    
+                    if (transcript) {
+                        document.getElementById('chatInput').value = transcript;
+                        autoResize(document.getElementById('chatInput'));
+                    }
+                    
+                    stream.getTracks().forEach(track => track.stop());
+                };
+                
+                mediaRecorder.start();
+                isRecording = true;
+                
+                // Update UI
+                const recordBtn = document.getElementById('voiceRecordBtn');
+                if (recordBtn) {
+                    recordBtn.classList.add('recording');
+                    recordBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Recording';
+                }
+                
+            } catch (error) {
+                console.error('Voice recording failed:', error);
+                alert('Voice recording not supported or permission denied.');
+            }
+        }
+
+        function stopVoiceRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                
+                // Update UI
+                const recordBtn = document.getElementById('voiceRecordBtn');
+                if (recordBtn) {
+                    recordBtn.classList.remove('recording');
+                    recordBtn.innerHTML = '<i class="fas fa-microphone"></i> Voice Input';
+                }
+            }
+        }
+
+        function toggleVoiceRecording() {
+            if (isRecording) {
+                stopVoiceRecording();
+            } else {
+                startVoiceRecording();
+            }
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize welcome screen
+            initializeWelcomeScreen();
+            
+            // Initialize other components
+            updateInputContext('welcome');
+        });
+    </script>
+</body>
+</html> 
