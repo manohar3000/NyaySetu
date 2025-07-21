@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+langchain
+google-cloud-speech
+google-cloud-storage
+google-cloud-bigquery
+google-cloud-firestore
+google-auth
+gtts
+elevenlabs
+python-dotenv
+twilio
+firebase-admin
+pydantic
+httpx
+faster-whisper
+torch
