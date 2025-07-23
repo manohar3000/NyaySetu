@@ -41,13 +41,11 @@ Breaking down barriers to legal access through AI innovation, ensuring justice i
 - **🎵 Voice Synthesis**: Natural speech with ElevenLabs voice technology
 - **📝 Case Management**: Upload case materials and track practice sessions
 
-📞 IVR System for Local Communities
-
-This system is designed specifically for local people, allowing real conversations in both Hindi and English by simply dialing a number for any issues. This ensures that language is not a barrier for citizens seeking justice.
-
-Accessible by Phone: Users can call a dedicated number to interact with the AI assistant in their language of choice.
-
-Simple and Intuitive: Designed for ease of use by people in urban and rural areas.
+### 📞 **IVR System for Local Communities
+This system is specifically designed to bridge the legal knowledge gap for local people, ensuring justice is accessible simply by making a phone call.
+- **🗣️ Hindi & English Support: Conduct real conversations in both Hindi and English, ensuring language is never a barrier for citizens seeking justice.
+- **📱 Accessible by Phone: Users can easily call a dedicated number to interact with the AI assistant in their language of choice.
+- **💡 Simple and Intuitive: Designed for ease of use, making legal guidance straightforward for people in both urban and rural areas.
 
 ### 📄 **Intelligent Document Processing**
 - **📊 AI Summarization**: Extract key insights from legal documents
