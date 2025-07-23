@@ -42,7 +42,8 @@ Breaking down barriers to legal access through AI innovation, ensuring justice i
 - **📝 Case Management**: Upload case materials and track practice sessions
 
 📞 IVR System for Local Communities
-Hindi & English Support: An IVR system designed specifically for local people allowing real conversations in both Hindi and English. This ensures that language is not a barrier for citizens seeking justice.
+
+This system is designed specifically for local people, allowing real conversations in both Hindi and English by simply dialing a number for any issues. This ensures that language is not a barrier for citizens seeking justice.
 
 Accessible by Phone: Users can call a dedicated number to interact with the AI assistant in their language of choice.
 
