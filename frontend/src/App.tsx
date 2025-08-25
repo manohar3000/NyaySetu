@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Scale, 
@@ -15,8 +15,10 @@ import {
   Github,
   Mail,
   Phone,
-  Calendar
+  Calendar,
+  Gavel
 } from 'lucide-react';
+import AICourtInterface from './components/AICourtInterface';
 import AuthPage from './components/auth/AuthPage';
 import WelcomeScreen from './components/WelcomeScreen';
 import SplashScreen from './components/SplashScreen';
@@ -31,6 +33,7 @@ const App = () => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const [isChatbotOpen, setIsChatbotOpen] = React.useState(false);
   const [isAuthOpen, setIsAuthOpen] = React.useState(false);
+  const [isAICourtOpen, setIsAICourtOpen] = React.useState(false);
 
   const fadeInUp = {
     initial: { opacity: 0, y: 60 },
@@ -79,9 +82,10 @@ const App = () => {
       description: "Schedule consultations with lawyers seamlessly with our intelligent appointment scheduling system."
     },
     {
-      icon: <Scale className="w-8 h-8" />,
+      icon: <Gavel className="w-8 h-8" />,
       title: "AI Court",
-      description: "Practice your legal cases in a virtual courtroom environment with AI-powered simulations."
+      description: "Practice your legal cases in a virtual courtroom environment with AI-powered simulations.",
+      onClick: () => setIsAICourtOpen(true)
     },
     {
       icon: <Users className="w-8 h-8" />,
@@ -116,8 +120,9 @@ const App = () => {
   return (
     <Router>
       <Routes>
-        <Route path="/splash" element={<SplashScreen name={name} isNewUser={firstLogin} onFinish={() => window.location.replace('/welcome')} />} />
+        <Route path="/splash" element={<SplashScreen name={name} isNewUser={firstLogin} onFinish={() => window.history.replaceState({}, '', '/welcome')} />} />
         <Route path="/welcome" element={<WelcomeScreen name={name} role={role || 'user'} firstLogin={firstLogin} />} />
+
         <Route path="/dashboard/user" element={
           <PrivateRoute>
             <UserDashboard />
@@ -131,6 +136,11 @@ const App = () => {
         <Route path="/dashboard/new" element={
           <PrivateRoute>
             <DashboardPage />
+          </PrivateRoute>
+        } />
+        <Route path="/aicourt" element={
+          <PrivateRoute>
+            <AICourtInterface />
           </PrivateRoute>
         } />
         <Route path="/*" element={
@@ -157,7 +167,7 @@ const App = () => {
 
                   {/* Desktop Navigation */}
                   <nav className="hidden md:flex items-center space-x-8">
-                    {['Home', 'Features', 'About', 'Contact'].map((item) => (
+                    {['Home', 'Features', 'About', 'Contact', 'AI Court'].map((item) => (
                       <motion.a
                         key={item}
                         href={`#${item.toLowerCase()}`}
@@ -211,7 +221,7 @@ const App = () => {
                   exit={{ opacity: 0, height: 0 }}
                 >
                   <div className="container mx-auto px-4 py-4 space-y-4">
-                    {['Home', 'Features', 'About', 'Contact'].map((item) => (
+                    {['Home', 'Features', 'About', 'Contact', 'AI Court'].map((item) => (
                       <a
                         key={item}
                         href={`#${item.toLowerCase()}`}

@@ -1,16 +1,141 @@
-from typing import List, Dict, Any
-from fastapi import HTTPException
+from typing import List, Dict, Any, Optional
+from fastapi import HTTPException, status
 from llama_index.core.prompts import PromptTemplate
 import google.generativeai as genai
 from dotenv import load_dotenv
+from datetime import datetime
+import logging
+import json
+from ..core.state_manager import state_manager, DebateState
 
 from backend.ai_court.core.llm import gemini_model
 from backend.ai_court.core.query_engine import qna_query_engine, case_query_engine
-from backend.ai_court.models.api_models import DebateInput, DebateTurnResponse, CaseDetails, CaseStatus, CaseStartResponse, PracticeConfig
+from backend.ai_court.models.api_models import (
+    DebateInput, DebateTurnResponse, CaseDetails, CaseStatus, 
+    CaseStartResponse, PracticeConfig, DebateTurnInput, DebateTurnOutput
+)
 from backend.ai_court.services.case_manager import case_manager
+
+# Initialize Gemini model
+if gemini_model is None:
+    raise RuntimeError("Gemini model not initialized. Please check your configuration.")
 
 # Load environment variables at the very beginning
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Define roles for turn management
+ROLE_JUDGE = "judge"
+ROLE_AI_LAWYER = "ai_lawyer"
+ROLE_USER = "user"
+
+# Define turn order
+TURN_ORDER = [ROLE_JUDGE, ROLE_USER, ROLE_AI_LAWYER, ROLE_JUDGE]
+
+class TurnBasedDebateError(Exception):
+    """Custom exception for turn-based debate errors"""
+    def __init__(self, message: str, status_code: int = 400):
+        self.message = message
+        self.status_code = status_code
+        super().__init__(self.message)
+
+async def handle_turn_based_debate(session_id: str, user_input: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Handle a single turn in the turn-based debate system.
+    
+    Args:
+        session_id: The ID of the current debate session
+        user_input: The user's input (if it's the user's turn)
+        
+    Returns:
+        Dict containing the response and next turn information
+    """
+    try:
+        # Get the current debate state
+        if session_id not in state_manager.sessions:
+            raise TurnBasedDebateError("Session not found", status_code=404)
+            
+        state = state_manager.sessions[session_id]
+        
+        # If it's the user's turn, validate and process their input
+        if state.waiting_for == ROLE_USER:
+            if not user_input or not user_input.strip():
+                raise TurnBasedDebateError("User input is required", status_code=400)
+                
+            # Add user's message to the debate history
+            state_manager.add_message(session_id, ROLE_USER, user_input)
+            
+            # Generate AI lawyer's response
+            return await _generate_ai_lawyer_response(session_id)
+            
+        # If it's the AI lawyer's turn, generate their response
+        elif state.waiting_for == ROLE_AI_LAWYER:
+            return await _generate_ai_lawyer_response(session_id)
+            
+        # If it's the judge's turn, generate their response
+        elif state.waiting_for == ROLE_JUDGE:
+            return await _generate_judge_response(session_id)
+            
+        else:
+            raise TurnBasedDebateError("Invalid turn state", status_code=500)
+            
+    except TurnBasedDebateError as e:
+        logger.error(f"Turn-based debate error: {str(e)}")
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        logger.error(f"Unexpected error in turn-based debate: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
+
+
+async def _generate_ai_lawyer_response(session_id: str) -> Dict[str, Any]:
+    """Generate a response from the AI lawyer"""
+    state = state_manager.sessions[session_id]
+    
+    # Get the prompt for the AI lawyer
+    prompt = state_manager.get_ai_lawyer_prompt(session_id)
+    
+    # Generate the response using Gemini
+    response = await gemini_model.generate_content_async(prompt)
+    
+    # Add the AI lawyer's response to the debate history
+    state_manager.add_message(session_id, ROLE_AI_LAWYER, response.text)
+    
+    # Return the response and next turn info
+    return {
+        "role": ROLE_AI_LAWYER,
+        "content": response.text,
+        "next_turn": ROLE_JUDGE,
+        "round": state.current_round
+    }
+
+
+async def _generate_judge_response(session_id: str) -> Dict[str, Any]:
+    """Generate a response from the judge"""
+    state = state_manager.sessions[session_id]
+    
+    # Get the prompt for the judge
+    prompt = state_manager.get_judge_prompt(session_id)
+    
+    # Generate the response using Gemini
+    response = await gemini_model.generate_content_async(prompt)
+    
+    # Add the judge's response to the debate history
+    state_manager.add_message(session_id, ROLE_JUDGE, response.text)
+    
+    # Determine the next speaker
+    next_speaker = ROLE_USER if state.waiting_for != ROLE_USER else ROLE_AI_LAWYER
+    
+    # Return the response and next turn info
+    return {
+        "role": ROLE_JUDGE,
+        "content": response.text,
+        "next_turn": next_speaker,
+        "round": state.current_round
+    }
+
 
 async def start_new_case(case_details: CaseDetails, practice_config: Dict) -> CaseStartResponse:
     """
@@ -57,53 +182,51 @@ async def start_new_case(case_details: CaseDetails, practice_config: Dict) -> Ca
             4. Mentions the key legal issues to be addressed
             5. Provides clear procedural guidance
             
-            Use formal judicial language and maintain authority. Keep it concise but comprehensive.
-            
-            Choose from these opening styles (pick one randomly):
-            - "All rise. Court is now in session for [Case Title]. Counsel, you may proceed."
-            - "Good morning, Counsel. We are here today to examine [Case Title]. Prosecution may present the facts."
-            - "Let us proceed with today's matter. [Case Title] is now before this Court. Counsel, your arguments, please."
-            - "Court is now in session. [Case Title] is called. Both parties are present and represented. Let us begin."
-            
-            Your opening statement:
-            """
-        )
         
-        judge_opening_str = judge_opening_prompt.format(
-            case_title=case_details.caseTitle,
-            case_type=case_details.caseType.value,
-            specific_issue=case_details.specificIssue,
-            plaintiff=case_details.plaintiff,
-            defendant=case_details.defendant,
-            user_role=case_details.userRole,
-            case_summary=case_details.caseSummary,
-            key_arguments=", ".join(case_details.keyArguments) if case_details.keyArguments else "Not specified",
-            difficulty_level=practice_config.get('difficultyLevel', 'Standard'),
-            judge_strictness=practice_config.get('judgeStrictness', 'Moderate'),
-            opponent_experience=practice_config.get('opponentExperience', 'Standard'),
-            opponent_style=practice_config.get('opponentStyle', 'Professional')
-        )
+        Your task is to provide a concise opening statement that:
+        1. Acknowledges the court is now in session
+        2. States the nature of the case
+        3. Outlines the key legal principles at stake
+        4. Sets expectations for both counsels
+        5. Maintains strict courtroom decorum
         
-        judge_opening_obj = await gemini_model.generate_content_async(
-            judge_opening_str,
+        Keep it under 5 sentences. Be authoritative but not verbose.
+        """
+        )
+        judge_opening = await gemini_model.generate_content_async(
+            judge_prompt,
             generation_config=genai.types.GenerationConfig(
-                temperature=0.3,
-                max_output_tokens=800,
-                top_p=0.7
+                temperature=0.2,  # Lower temperature for more predictable output
+                max_output_tokens=200,
+                top_p=0.9,
+                top_k=20
             )
         )
-        judge_opening = judge_opening_obj.text.strip()
         
-        return CaseStartResponse(
+        # Add to debate history
+        state_manager.add_to_history(
             session_id=session_id,
-            case_id=case_id,
-            judge_opening=judge_opening,
-            case_status=CaseStatus.ACTIVE
+            role="judge",
+            content=judge_opening.text
         )
         
+        return {
+            "session_id": session_id,
+            "judge_opening": judge_opening.text,
+            "case_details": {
+                "case_type": case_details.case_type,
+                "specific_issue": case_details.specific_issue,
+                "case_summary": case_details.case_summary
+            },
+            "instructions": "The court is now in session. Please present your case."
+        }
+        
     except Exception as e:
-        print(f"Error starting new case: {e}")
-        raise HTTPException(status_code=500, detail=f"An error occurred while starting the case: {str(e)}")
+        logger.error(f"Error starting new case: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to start new case: {str(e)}"
+        )
 
 async def continue_case(session_id: str, human_input: str) -> DebateTurnResponse:
     """
@@ -322,20 +445,33 @@ async def conduct_debate_turn(input: DebateInput) -> DebateTurnResponse:
         # Build AI Lawyer prompt based on practice configuration
         AI_LAWYER_PROMPT = PromptTemplate(
             """
-            You are an AI Opposition Lawyer representing the defendant in a legal case. You must respond naturally and professionally to the human lawyer's arguments.
+            You are an experienced Defense Attorney with 15+ years of criminal defense practice. You are representing a client in a {case_type} case. Your responses must be:
+            - Concise and to the point (max 3-4 sentences)
+            - Legally precise and technically accurate
+            - Focused on the specific allegations
+            - Based only on known facts and evidence
 
             CASE CONTEXT:
             - Case Type: {case_type}
-            - Specific Issue: {specific_issue}
-            - Case Summary: {case_summary}
-            - Your Role: Opposition/Defense Counsel
-            - User Role: {user_role}
+            - Specific Charge: {specific_issue}
+            - Known Facts: {case_summary}
+            - Your Role: Defense Counsel
+            - Prosecution's Role: {user_role}
 
-            OPPONENT PROFILE:
+            RESPONSE RULES:
+            1. NEVER invent or assume facts not in evidence
+            2. ALWAYS maintain presumption of innocence
+            3. Focus on specific weaknesses in prosecution's case
+            4. Cite specific legal principles when relevant
+            5. Keep responses brief and impactful
+
+            OPPOSITION STRATEGY:
             - Experience Level: {opponent_experience}
             - Argument Style: {opponent_style}
-            - Strengths: {opponent_strengths}
-            - Difficulty Level: {difficulty_level}
+            - Case Difficulty: {difficulty_level}
+            
+            CURRENT DEBATE CONTEXT:
+            {debate_history}
 
             📚 RELEVANT LEGAL CONTEXT (from case law and precedents):
             {qna_context}
@@ -497,7 +633,23 @@ async def conduct_debate_turn(input: DebateInput) -> DebateTurnResponse:
 
         # --- 3. AI Judge's Evaluation & Intervention Decision ---
         judge_prompt_base = """
-            You are an impartial and authoritative AI Judge overseeing a legal debate between a Human Lawyer and an AI Lawyer.
+            You are a High Court Judge with 20+ years of experience, presiding over this case. You maintain strict courtroom decorum and ensure proper legal procedures are followed.
+            
+            COURTROOM RULES:
+            1. Maintain control of proceedings
+            2. Ensure arguments stay relevant to the charges
+            3. Prevent speculation and unsubstantiated claims
+            4. Uphold rules of evidence
+            5. Keep discussions focused and professional
+            
+            Your primary responsibilities:
+            - Ensure proper legal procedures are followed
+            - Rule on objections and admissibility of evidence
+            - Guide the examination of witnesses
+            - Maintain order and decorum in the courtroom
+            - Ensure both parties get fair opportunity to present their case
+            
+            Current Case: {case_type} - {specific_issue}
             Your role is to ensure legal accuracy, procedural fairness, and maintain courtroom decorum.
 
             INTERVENTION GUIDELINES:

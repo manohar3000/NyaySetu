@@ -101,7 +101,8 @@ const activityTimeline = [
   },
 ];
 
-const AICOURT_URL = '/ai-court-interface'; // Use the endpoint in our main app
+// Use the correct endpoint for AI Court
+const AICOURT_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/ai-court`;
 
 const LawyerDashboard: React.FC = () => {
   const { name } = useSession();

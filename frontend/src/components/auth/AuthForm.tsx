@@ -1,11 +1,11 @@
-import React, { useState, useRef } from 'react';
-import SocialAuthButtons from './SocialAuthButtons';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, EyeOff } from 'lucide-react';
-import AlertMessage from './AlertMessage';
-import axiosInstance from '../../utils/axios';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../contexts/SessionContext';
+import { authApi } from '../../services/api';
+import AlertMessage from './AlertMessage';
+import SocialAuthButtons from './SocialAuthButtons';
 
 interface AuthFormProps {
   tab: 'signin' | 'signup';
@@ -28,7 +28,6 @@ const initialFields = {
 
 const AuthForm: React.FC<AuthFormProps> = ({ tab, role, onAuthSuccess }) => {
   const [fields, setFields] = useState(initialFields);
-  // REMOVE: const [step, setStep] = useState(1); // For 2-step sign in
   const [showForgot, setShowForgot] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -110,109 +109,54 @@ const AuthForm: React.FC<AuthFormProps> = ({ tab, role, onAuthSuccess }) => {
         
         let profileImageBase64 = null;
         if (fields.profileImage) {
-          const reader = new FileReader();
-          reader.onloadend = async () => {
-            profileImageBase64 = reader.result as string;
-            const payload: any = {
-              email: fields.email,
-              username: fields.name,
-              password: fields.password,
-              role,
-            };
-            if (role === 'lawyer') {
-              payload.specialization = fields.specialization;
-              payload.license_number = fields.licenseNumber;
-              payload.profile_image = profileImageBase64;
-            }
-            try {
-              const res = await axiosInstance.post('/api/signup', payload);
-              if (res.data) {
-                // After successful signup, automatically sign in
-                const signinPayload = new FormData();
-                signinPayload.append('username', fields.name);
-                signinPayload.append('password', fields.password);
-                
-                const loginRes = await axiosInstance.post('/api/signin', signinPayload, {
-                  headers: {
-                    'Content-Type': 'multipart/form-data',
-                  },
-                });
-                
-                if (loginRes.data && loginRes.data.access_token) {
-                  localStorage.setItem('vaanee_jwt', loginRes.data.access_token);
-                  localStorage.setItem('vaanee_user_name', fields.name);
-                  localStorage.setItem('vaanee_user_role', role);
-                  localStorage.setItem('vaanee_first_login', 'true');
-                  
-                  setSession({
-                    name: fields.name,
-                    role: role,
-                    firstLogin: true,
-                    isAuthenticated: true,
-                  });
-                  
-                  setAlert({ type: 'success', message: 'Registration successful! Redirecting...' });
-                  setTimeout(() => {
-                    navigate('/splash');
-                    if (onAuthSuccess) onAuthSuccess();
-                  }, 1200);
-                }
-              }
-            } catch (err: any) {
-              const errorMessage = err.response?.data?.detail || 'Registration failed. Please try again.';
-              setAlert({ type: 'error', message: errorMessage });
-            }
-          };
-          reader.readAsDataURL(fields.profileImage);
-        } else {
-          const payload: any = {
-            email: fields.email,
-            username: fields.name,
-            password: fields.password,
-            role,
-          };
-          if (role === 'lawyer') {
-            payload.specialization = fields.specialization;
-            payload.license_number = fields.licenseNumber;
-            payload.profile_image = null;
+          profileImageBase64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(fields.profileImage!);
+          });
+        }
+        
+        const userData = {
+          email: fields.email,
+          username: fields.name,
+          password: fields.password,
+          role,
+          ...(role === 'lawyer' && {
+            specialization: fields.specialization,
+            license_number: fields.licenseNumber,
+            profile_image: profileImageBase64
+          })
+        };
+        
+        try {
+          // Register the user
+          await authApi.register(userData);
+          
+          // After successful signup, automatically sign in
+          const { access_token } = await authApi.login(fields.name, fields.password);
+          
+          if (access_token) {
+            localStorage.setItem('vaanee_jwt', access_token);
+            localStorage.setItem('vaanee_user_name', fields.name);
+            localStorage.setItem('vaanee_user_role', role);
+            localStorage.setItem('vaanee_first_login', 'true');
+            
+            setSession({
+              name: fields.name,
+              role: role,
+              firstLogin: true,
+              isAuthenticated: true,
+            });
+            
+            setAlert({ type: 'success', message: 'Registration successful! Redirecting...' });
+            setTimeout(() => {
+              navigate('/splash');
+              onAuthSuccess?.();
+            }, 1200);
           }
-          try {
-            const res = await axiosInstance.post('/api/signup', payload);
-            if (res.data) {
-              // After successful signup, automatically sign in
-              const signinPayload = new FormData();
-              signinPayload.append('username', fields.name);
-              signinPayload.append('password', fields.password);
-              
-              const loginRes = await axiosInstance.post('/api/signin', signinPayload, {
-                headers: {
-                  'Content-Type': 'multipart/form-data',
-                },
-              });
-              
-              if (loginRes.data && loginRes.data.access_token) {
-                localStorage.setItem('vaanee_jwt', loginRes.data.access_token);
-                localStorage.setItem('vaanee_user_name', fields.name);
-                localStorage.setItem('vaanee_user_role', role);
-                
-                setSession({
-                  name: fields.name,
-                  role: role,
-                  firstLogin: false,
-                  isAuthenticated: true,
-                });
-                
-                setAlert({ type: 'success', message: 'Registration successful! Redirecting...' });
-                setTimeout(() => {
-                  navigate('/splash');
-                  if (onAuthSuccess) onAuthSuccess();
-                }, 1200);
-              }
-            }
-          } catch (err: any) {
-            const errorMessage = err.response?.data?.detail || 'Registration failed. Please try again.';
-            setAlert({ type: 'error', message: errorMessage });
-          }
+        } catch (error: any) {
+          const errorMessage = error.response?.data?.detail || 'Registration failed. Please try again.';
+          setAlert({ type: 'error', message: errorMessage });
         }
       } else {
         // SIGN IN LOGIC
@@ -223,18 +167,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ tab, role, onAuthSuccess }) => {
         }
 
         try {
-          const formData = new FormData();
-          formData.append('username', fields.identifier);
-          formData.append('password', fields.password);
-
-          const res = await axiosInstance.post('/api/signin', formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-          });
+          const { access_token } = await authApi.login(fields.identifier, fields.password);
           
-          if (res.data && res.data.access_token) {
-            localStorage.setItem('vaanee_jwt', res.data.access_token);
+          if (access_token) {
+            localStorage.setItem('vaanee_jwt', access_token);
             localStorage.setItem('vaanee_user_name', fields.identifier);
             localStorage.setItem('vaanee_user_role', role);
             
@@ -247,7 +183,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ tab, role, onAuthSuccess }) => {
             
             setAlert({ type: 'success', message: 'Sign in successful! Redirecting...' });
             setTimeout(() => {
-              if (onAuthSuccess) onAuthSuccess();
+              onAuthSuccess?.();
               navigate('/splash');
             }, 1200);
           }

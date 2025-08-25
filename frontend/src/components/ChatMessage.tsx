@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Bot, User } from 'lucide-react';
 
-interface Message {
+export interface Message {
   id: string;
   text: string;
   isUser: boolean;
@@ -81,8 +81,24 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, index }) => {
           }`}
         />
         
-        {/* Message content */}
-        <p className="text-sm leading-relaxed">{message.text}</p>
+        {/* Message content with basic formatting */}
+        <div 
+          className="text-sm leading-relaxed"
+          dangerouslySetInnerHTML={{ 
+            __html: message.text
+              .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-cyan-300">$1</strong>')
+              .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+              .replace(/^### (.*$)/gm, '<h3 class="text-base font-bold mt-3 mb-1">$1</h3>')
+              .replace(/^## (.*$)/gm, '<h2 class="text-lg font-bold mt-4 mb-2">$1</h2>')
+              .replace(/^# (.*$)/gm, '<h1 class="text-xl font-bold mt-4 mb-2">$1</h1>')
+              .replace(/^- (.*$)/gm, '<li class="ml-4 list-disc">$1</li>')
+              .replace(/^\d+\. (.*$)/gm, '<li class="ml-4 list-decimal">$1</li>')
+              .replace(/`([^`]+)`/g, '<code class="bg-gray-700 px-1 py-0.5 rounded text-sm">$1</code>')
+              .replace(/```([\s\S]*?)```/g, '<pre class="bg-gray-800 p-3 rounded-md overflow-x-auto my-3"><code class="text-sm">$1</code></pre>')
+              .replace(/\n\n/g, '</p><p class="mb-2 last:mb-0">')
+              .replace(/^<p/m, '<p class="mb-2 last:mb-0"')
+          }}
+        />
         
         {/* Timestamp */}
         <div

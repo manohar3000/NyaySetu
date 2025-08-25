@@ -1,20 +1,22 @@
-import React, { useState, useRef, useEffect } from 'react';
+import * as React from 'react';
+import { useState, useRef, useEffect, FC, FormEvent, ChangeEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, Mic, MicOff, Phone, PhoneOff, Menu, Paperclip } from 'lucide-react';
-import ChatMessage from './ChatMessage';
+import ChatMessage, { Message as MessageType } from './ChatMessage';
 import TypingIndicator from './TypingIndicator';
 import VaaneeAvatar from './VaaneeAvatar';
 import LaunchScreen from './LaunchScreen';
 import NyayaLogSidebar from './NyayaLogSidebar';
+import { chatApi } from '../services/api';
 
-interface Message {
+export interface Message extends MessageType {
   id: string;
   text: string;
   isUser: boolean;
   timestamp: Date;
 }
 
-interface Conversation {
+export interface Conversation {
   id: string;
   title: string;
   messages: Message[];
@@ -26,9 +28,7 @@ interface ChatbotProps {
   onClose: () => void;
 }
 
-const API_URL = 'http://localhost:8000/api/chat';
-
-const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
+const Chatbot: FC<ChatbotProps> = ({ isOpen, onClose }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -51,7 +51,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   // Add file input state
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       // Handle file upload logic here (e.g., send to backend or show preview)
@@ -91,7 +91,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
         messages: [
           {
             id: '1',
-            text: "Hello! I'm Vaanee, your AI legal assistant. I can help you with legal questions, document analysis, and finding the right lawyer. How can I assist you today?",
+            text: "Hello! I'm Vaanee, your AI legal assistant. How can I assist you today?",
             isUser: false,
             timestamp: new Date(),
           },
@@ -144,25 +144,13 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
     setIsTyping(true);
 
     try {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: text.trim() }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get response from AI');
-      }
-
-      const data = await response.json();
+      const response = await chatApi.sendMessage(text);
       
       const aiMessage: Message = {
-        id: data.id,
-        text: data.text,
+        id: response.id,
+        text: response.text,
         isUser: false,
-        timestamp: new Date(data.timestamp),
+        timestamp: new Date(response.timestamp),
       };
 
       setMessages(prev => [...prev, aiMessage]);
@@ -180,7 +168,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     handleSendMessage(inputText);
   };
@@ -245,7 +233,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
                   <NyayaLogSidebar
                     isOpen={sidebarOpen}
                     onClose={() => setSidebarOpen(false)}
-                    onSelectChat={id => setActiveConversationId(id.toString())}
+                    onSelectChat={(id: string | number) => setActiveConversationId(id.toString())}
                     activeChatId={activeConversationId ? parseInt(activeConversationId) : undefined}
                     conversations={conversations}
                     onNewChat={startNewConversation}
@@ -263,7 +251,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
                     <div className="flex items-center space-x-3">
                       <button
                         className="p-2 rounded-full bg-gray-800 text-cyan-400 hover:bg-gray-700 transition-all mr-2"
-                        onClick={() => setSidebarOpen(v => !v)}
+                        onClick={() => setSidebarOpen((v: boolean) => !v)}
                         title={sidebarOpen ? 'Hide chat history' : 'Show chat history'}
                       >
                         <Menu className="w-6 h-6" />

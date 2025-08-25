@@ -1,159 +1,161 @@
 import os
 import tempfile
-from typing import Optional, Dict, Any
-from fastapi import UploadFile, HTTPException
-from faster_whisper import WhisperModel
 import asyncio
+import aiohttp
+from typing import Dict, Any, Tuple, List, Optional
+from fastapi import UploadFile, HTTPException, status
+from faster_whisper import WhisperModel
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Configuration
+DEEPGRAM_API_KEY = "27cae19012898c181b19b61be3a4f90362c1dde6"
+DEEPGRAM_API_URL = "https://api.deepgram.com/v1/listen?model=nova-2"  # Using Nova-2 as it's the fastest model
 
 class SpeechRecognitionService:
     def __init__(self):
-        # Load model only once when service starts
-        self.model = None
-        self.model_name = None
-        
+        # Initialize Whisper as fallback
+        self.whisper_model = None
+        self.whisper_model_name = None
+        self._init_whisper_fallback()
+
+    def _init_whisper_fallback(self):
+        """Initialize Whisper model as fallback"""
         # Try different model sizes in order of preference
         model_options = [
             ("base", "base"),  # Fastest, smallest
             ("small", "small"),  # Good balance
             ("medium", "medium"),  # Better accuracy
-            ("large-v3", "large-v3")  # Best accuracy but slowest
         ]
-        
+
         for model_name, model_id in model_options:
             try:
-                print(f"🔄 Attempting to load Whisper model: {model_name}")
-                self.model = WhisperModel(model_id, device="cpu", compute_type="int8")
-                self.model_name = model_name
-                print(f"✅ Whisper {model_name} model loaded successfully")
+                print(f"🔄 Attempting to load Whisper fallback model: {model_name}")
+                self.whisper_model = WhisperModel(model_id, device="cpu", compute_type="int8")
+                self.whisper_model_name = model_name
+                print(f"✅ Whisper {model_name} fallback model loaded successfully")
                 break
             except Exception as e:
-                print(f"❌ Failed to load {model_name} model: {e}")
-                continue
-        
-        if not self.model:
-            print("❌ All Whisper models failed to load. Speech recognition will not be available.")
-    
-    async def transcribe_audio(self, file: UploadFile) -> Dict[str, Any]:
-        """
-        Transcribe uploaded audio file to text.
-        
-        Args:
-            file: Uploaded audio file
-            
-        Returns:
-            Dictionary containing transcript and language info
-        """
-        if not self.model:
-            raise HTTPException(status_code=500, detail="Speech recognition model not available")
-        
-        # Validate file type
-        allowed_extensions = ['.mp3', '.wav', '.m4a', '.ogg', '.flac', '.webm']
-        file_extension = os.path.splitext(file.filename)[-1].lower()
-        
-        if file_extension not in allowed_extensions:
+                print(f"❌ Failed to load Whisper {model_name} model: {e}")
+
+        if not self.whisper_model:
+            print("⚠️ Warning: No Whisper model could be loaded. Speech recognition will fail if Deepgram is unavailable.")
+
+    async def _transcribe_with_deepgram(self, audio_data: bytes) -> Tuple[bool, str]:
+        """Transcribe audio using Deepgram API"""
+        if not DEEPGRAM_API_KEY:
+            print("⚠️ Deepgram API key not found. Falling back to Whisper.")
+            return False, ""
+
+        headers = {
+            "Authorization": f"Token {DEEPGRAM_API_KEY}",
+            "Content-Type": "audio/wav"
+        }
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    DEEPGRAM_API_URL,
+                    headers=headers,
+                    data=audio_data,
+                    timeout=30  # 30 seconds timeout
+                ) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        return True, result['results']['channels'][0]['alternatives'][0]['transcript']
+                    else:
+                        error = await response.text()
+                        print(f"❌ Deepgram API error: {error}")
+                        return False, ""
+        except Exception as e:
+            print(f"❌ Deepgram API request failed: {str(e)}")
+            return False, ""
+
+    async def _transcribe_with_whisper(self, audio_data: bytes) -> Dict[str, Any]:
+        """Transcribe audio using Whisper (fallback)"""
+        if not self.whisper_model:
             raise HTTPException(
-                status_code=400, 
-                detail=f"Unsupported file type. Allowed: {', '.join(allowed_extensions)}"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="No speech recognition service is available"
             )
         
-        # Save uploaded file to temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as tmp:
-            content = await file.read()
-            tmp.write(content)
-            tmp_path = tmp.name
+        # Save audio data to a temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
+            try:
+                temp_audio.write(audio_data)
+                temp_audio_path = temp_audio.name
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Error processing audio data: {str(e)}"
+                )
         
         try:
-            print(f"🎤 Starting transcription with {self.model_name} model...")
-            
-            # Adjust parameters based on model size
-            if self.model_name in ["large-v3", "large"]:
-                # Use more conservative settings for large models
-                beam_size = 3
-                best_of = 3
-                temperature = 0.0
-            elif self.model_name in ["medium"]:
-                beam_size = 4
-                best_of = 4
-                temperature = 0.0
-            else:
-                # Use default settings for smaller models
-                beam_size = 5
-                best_of = 5
-                temperature = 0.0
-            
-            # Transcribe audio with forced English language and improved settings
-            segments, info = self.model.transcribe(
-                tmp_path,
-                language="en",  # Force English language
-                task="transcribe",  # Explicitly set task
-                beam_size=beam_size,
-                best_of=best_of,
-                temperature=temperature,  # Reduce randomness for more consistent results
-                condition_on_previous_text=False,  # Don't condition on previous text
-                initial_prompt="This is a legal courtroom conversation in English."  # Help guide the model
+            # Transcribe the audio file using Whisper
+            segments, info = await asyncio.to_thread(
+                self.whisper_model.transcribe,
+                temp_audio_path,
+                beam_size=5,
+                language="en"
             )
             
-            # Combine all segments into one transcript
+            # Convert segments to text
             transcript = " ".join([segment.text for segment in segments]).strip()
             
-            # Get language info
-            language = info.language if hasattr(info, 'language') else "en"
-            language_probability = info.language_probability if hasattr(info, 'language_probability') else 1.0
-            
-            print(f"📝 Transcription: {transcript}")
-            print(f"🌍 Language: {language} (confidence: {language_probability:.2f})")
-            
-            # If transcript is empty or very short, try without language forcing
-            if not transcript or len(transcript.strip()) < 2:
-                print("🔄 Retrying without language forcing...")
-                segments, info = self.model.transcribe(
-                    tmp_path,
-                    task="transcribe",
-                    beam_size=beam_size,
-                    best_of=best_of,
-                    temperature=temperature
-                )
-                transcript = " ".join([segment.text for segment in segments]).strip()
-                print(f"📝 Retry transcription: {transcript}")
-            
-            if not transcript:
-                raise HTTPException(status_code=400, detail="No speech detected in the audio file")
-            
-            # Clean up transcript (remove extra spaces, normalize)
-            transcript = " ".join(transcript.split())
-            
             return {
-                "transcript": transcript,
-                "language": language,
-                "language_confidence": language_probability,
-                "model_used": self.model_name,
-                "segments": [
-                    {
-                        "text": segment.text,
-                        "start": segment.start,
-                        "end": segment.end,
-                        "words": [
-                            {
-                                "word": word.word,
-                                "start": word.start,
-                                "end": word.end,
-                                "probability": word.probability
-                            } for word in segment.words
-                        ] if hasattr(segment, 'words') else []
-                    } for segment in segments
-                ]
+                "text": transcript,
+                "language": info.language if hasattr(info, 'language') else 'en',
+                "model": f"whisper-{self.whisper_model_name}",
+                "service": "whisper",
+                "duration": sum(segment.duration for segment in segments) if segments else 0
             }
             
         except Exception as e:
-            print(f"❌ Transcription failed: {e}")
-            raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error during speech recognition: {str(e)}"
+            )
             
         finally:
-            # Clean up temporary file
+            # Clean up the temporary file
             try:
-                os.remove(tmp_path)
+                os.unlink(temp_audio_path)
             except:
                 pass
+
+    async def transcribe_audio(self, audio_file: UploadFile) -> Dict[str, Any]:
+        """
+        Transcribe audio file to text using Deepgram (primary) or Whisper (fallback).
+
+        Args:
+            audio_file: UploadFile containing audio data
+
+        Returns:
+            Dict containing transcription results and metadata
+        """
+        # Read audio data
+        try:
+            audio_data = await audio_file.read()
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Error reading audio file: {str(e)}"
+            )
+        
+        # Try Deepgram first
+        success, transcription = await self._transcribe_with_deepgram(audio_data)
+        if success:
+            return {
+                "text": transcription.strip(),
+                "model": "deepgram-nova-2",
+                "service": "deepgram"
+            }
+        
+        # Fall back to Whisper if Deepgram fails
+        print("⚠️ Falling back to Whisper for speech recognition")
+        return await self._transcribe_with_whisper(audio_data)
 
 # Global speech recognition service instance
 speech_recognition_service = SpeechRecognitionService() 

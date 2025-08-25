@@ -3,6 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import { FiUpload, FiFileText, FiX, FiCopy, FiCheck } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { documentApi } from '../../services/api';
 
 interface DocumentSummary {
   content: string;
@@ -40,27 +41,9 @@ const DocumentSummarizer: React.FC = () => {
   const processFile = async (file: File) => {
     if (!file) return;
 
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch('http://localhost:8000/api/documents/summarize-file', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Failed to process document');
-      }
-
-      const data = await response.json();
+      const data = await documentApi.summarizeFile(file);
       setSummary(data);
       toast.success('Document processed successfully!');
     } catch (error: any) {
@@ -80,23 +63,7 @@ const DocumentSummarizer: React.FC = () => {
 
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch('http://localhost:8000/api/documents/summarize-text', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ text: textInput }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Failed to summarize text');
-      }
-
-      const data = await response.json();
+      const data = await documentApi.summarizeText(textInput);
       setSummary(data);
       toast.success('Text summarized successfully!');
     } catch (error: any) {

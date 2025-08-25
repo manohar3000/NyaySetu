@@ -81,6 +81,23 @@ class CaseListResponse(BaseModel):
     cases: List[CaseDetails] = Field(..., description="List of available cases")
     total_count: int = Field(..., description="Total number of cases")
 
+class DebateTurnInput(BaseModel):
+    """Input model for submitting a turn in the debate"""
+    session_id: str = Field(..., description="The session ID of the debate")
+    user_input: Optional[str] = Field(None, description="User's input (required when it's the user's turn)")
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Additional metadata")
+
+
+class DebateTurnOutput(BaseModel):
+    """Output model for a turn in the debate"""
+    role: str = Field(..., description="Role of the speaker (judge, ai_lawyer, user)")
+    content: str = Field(..., description="The content of the message")
+    next_turn: str = Field(..., description="Role of the next speaker")
+    round: int = Field(..., description="Current debate round")
+    waiting_for: str = Field(..., description="Role that should speak next")
+    is_final_judgment: bool = Field(default=False, description="Whether this is the final judgment")
+
+
 class CaseStartResponse(BaseModel):
     session_id: str = Field(..., description="New session ID")
     case_id: str = Field(..., description="Case ID")

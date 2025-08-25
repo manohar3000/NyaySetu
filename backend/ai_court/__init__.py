@@ -1,0 +1,1 @@
+# Initialize AI Court package

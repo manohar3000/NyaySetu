@@ -1,0 +1,75 @@
+# Consolidated project requirements for NyaySetu
+# Combines backend, IVR, and AI Court dependencies
+
+# Web framework
+fastapi>=0.116.1
+uvicorn[standard]>=0.24.0
+
+# Auth & security
+bcrypt>=4.3.0
+passlib[bcrypt]>=1.7.4
+python-jose[cryptography]>=3.5.0
+email-validator>=2.2.0
+
+# Config & utils
+python-dotenv>=1.1.1
+pydantic[email]>=2.11.7
+pydantic>=2.11.7
+pydantic-settings>=2.10.1
+python-multipart>=0.0.20
+nest-asyncio>=1.5.8
+python-dateutil>=2.8.2
+aiofiles>=23.2.1
+httpx>=0.28.1
+
+# Database & storage
+sqlalchemy>=2.0.0
+
+# Vector stores / RAG
+qdrant-client>=1.6.2
+chromadb>=1.0.15
+sentence-transformers>=5.0.0
+
+# LlamaIndex / LangChain / LangGraph
+langchain>=0.3.27
+langchain-community>=0.3.27
+langgraph>=0.6.3
+llama-index>=0.13.0
+llama-index-core>=0.10.0
+llama-index-embeddings-huggingface>=0.6.0
+llama-index-vector-stores-qdrant>=0.1.0
+
+# Google ecosystem
+google-adk>=1.7.0
+google-auth>=2.40.3
+google-generativeai==0.3.0
+# Optional Google Cloud services used in IVR and data
+google-cloud-speech>=2.33.0
+google-cloud-storage>=3.2.0
+google-cloud-bigquery>=3.35.1
+google-cloud-firestore>=2.21.0
+
+# Voice / Speech
+faster-whisper>=1.1.1
+# Legacy whisper alternative in AI-court comments; keeping faster-whisper primary
+
+gtts>=2.5.4
+elevenlabs>=2.8.1
+
+deepgram-sdk>=3.0.0
+langid>=1.1.6
+
+# Documents & file type detection
+pypdf2>=3.0.1
+pypdf>=5.0.0
+python-magic>=0.4.27
+
+# Telephony / IVR
+Twilio>=9.7.0
+firebase-admin>=7.1.0
+
+# Dev server
+uvicorn>=0.35.0
+
+# Portia Labs AI SDK (Gemini support)
+portia-sdk-python[google]>=0.1.0

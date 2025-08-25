@@ -17,16 +17,39 @@ router = APIRouter()
 
 config = load_config()
 print("Config loaded:", config)
-NGROK_BASE_URL = config.get("NGROK_BASE_URL") or "https://b6f547fcb.ngrok-free.app"  # Fallback to current URL
+NGROK_BASE_URL = config.get("NGROK_BASE_URL") or "https://72cfe06833ea.ngrok-free.app"  # Fallback to current URL
 print("Using NGROK_BASE_URL:", NGROK_BASE_URL)
+
+# --- Answer Incoming Call ---
+@router.post("/answer")
+async def answer_call():
+    """Handle incoming call and set up recording."""
+    resp = VoiceResponse()
+    
+    # Greet the caller
+    resp.say("Welcome to Nyaya Setu Legal Assistant. ", 
+             language="en-IN")
+    
+    # Start recording
+    record = resp.record(
+        action="/ivr/process_input?language=en-IN",
+        method="POST",
+        max_length=10,  # 10 seconds max recording
+        finish_on_key="#"
+    )
+    
+    # If no recording was made
+    resp.say("We didn't receive your message. Please try again.", language="en-IN")
+    
+    return Response(content=str(resp), media_type="application/xml")
 
 # --- Call Trigger Endpoint ---
 @router.post("/make_call")
 def make_call():
     # Load Twilio credentials from env
-    account_sid = 
-    auth_token = 
-    from_number = "+17867861066"  # Your Twilio number
+    account_sid =os.getenv("TWILIO_ACCOUNT_SID")
+    auth_token =os.getenv("TWILIO_AUTH_TOKEN")
+    from_number = "+18575786786"  # Your Twilio number
     to_number = "+916351478230"      # Your real phone number
 
     client = Client(account_sid, auth_token)
@@ -76,7 +99,7 @@ def language_select(request: Request = None):
         if language == "hi-IN":
             gather.say("कृपया अपना प्रश्न पूछें।", language="hi-IN")
         else:
-            gather.say("Please ask your question after the beep.", language="en-IN")
+            gather.say("Please ask your question .", language="en-IN")
         resp.append(gather)
         resp.say("No input received. Goodbye!", language=language)
         return Response(content=str(resp), media_type="application/xml")
@@ -106,48 +129,123 @@ async def process_input(request: Request):
     # Response playback
     resp.play(audio_url)
 
-    # Step 1: If transcript is already available (via speech input)
+    # Step 1: First check if we have a direct transcript from Twilio
     if transcript:
-        print("🗣️ Transcript received from Twilio:", transcript)
-
-        # Add user message to history
-        conversation_history[session_id].append((now, "user", transcript))
-
-        if detect_human_request(transcript):
-            resp.redirect("/fallback/human", method="POST")
-            return Response(content=str(resp), media_type="application/xml")
-
+        print("✅ Using Twilio's speech-to-text result:", transcript)
+        # Add to conversation history
+        conversation_history[session_id].append((now, "user", transcript, language))
+        
+        # Get response from Gemini
         gemini = GeminiChain(session_id)
-        gemini_result = gemini.ask(transcript, history=conversation_history[session_id])
-        response_text = gemini_result["response"]
-
-        # Add agent response to history
-        conversation_history[session_id].append((now, "agent", response_text))
-
-        # Convert to speech and play
-        audio_url = synthesize_speech(response_text, lang=language)
-        resp.play(audio_url)
-
-        # Wait for next question (preserve language)
+        gemini_response = gemini.ask(transcript)
+        
+        # Add AI response to history
+        conversation_history[session_id].append((now, "assistant", gemini_response["response"], language))
+        
+        # Prepare TwiML response
+        response = VoiceResponse()
+        response.say(gemini_response["response"], language=language)
+        
+        # Ask if user needs more help
         gather = Gather(
-            input="speech",
-            action=f"{NGROK_BASE_URL}/ivr/process_input?language={language}",
+            input='speech',
+            action=f"/ivr/process_input?language={language}",
             method="POST",
             language=language,
-            timeout=5
+            speech_timeout="auto"
         )
-        if language == "hi-IN":
-            gather.say("कृपया अपना प्रश्न पूछें।", language="hi-IN")
-        else:
-            gather.say("Please ask your question.", language="en-IN")
-        resp.append(gather)
-        if language == "hi-IN":
-            resp.say("Lexa का उपयोग करने के लिए धन्यवाद। अलविदा!", language="hi-IN")
-        else:
-            resp.say("Thank you for using Lexa. Goodbye!", language="en-IN")
-        return Response(content=str(resp), media_type="application/xml")
+        gather.say("Do you have any other legal questions?", language=language)
+        response.append(gather)
+        
+        return Response(content=str(response), media_type="application/xml")
+        
+    # If no direct transcript, try Deepgram with the recording
+    elif audio_url:
+        print("🔍 Using Deepgram as primary STT")
+        print("🔗 Downloading audio from:", audio_url)
+        import httpx
+        try:
+            # Download the audio from Twilio
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                audio_response = await client.get(audio_url)
+                files = {"file": ("audio.wav", audio_response.content, "audio/wav")}
+                
+                # Get transcript from Deepgram
+                stt_response = await client.post(
+                    "http://localhost:8000/ivr/transcribe",
+                    files=files,
+                    timeout=10.0
+                )
+                stt_response.raise_for_status()
+                transcript_data = stt_response.json()
+                
+                # Update transcript and language from Deepgram
+                transcript = transcript_data.get("transcript", "")
+                detected_language = transcript_data.get("language", language)
+                
+                # If Deepgram failed but we have a transcript from Twilio, use that
+                if not transcript and 'SpeechResult' in form:
+                    transcript = form['SpeechResult']
+                    print("⚠️ Using Twilio transcript as fallback:", transcript)
+                
+                # Process the transcript if available
+                if transcript:
+                    # Add user message to history
+                    conversation_history[session_id].append((now, "user", transcript))
+                    
+                    # Check for human request
+                    if detect_human_request(transcript):
+                        resp.redirect("/fallback/human", method="POST")
+                        return Response(content=str(resp), media_type="application/xml")
+                    
+                    # Get response from Gemini
+                    gemini = GeminiChain(session_id)
+                    gemini_result = gemini.ask(transcript, history=conversation_history[session_id])
+                    response_text = gemini_result["response"]
+                    
+                    # Add agent response to history
+                    conversation_history[session_id].append((now, "agent", response_text))
+                    
+                    # Convert response to speech
+                    audio_url = synthesize_speech(response_text, lang=detected_language)
+                    resp.play(audio_url)
+                    
+                    # Only show the initial prompt if this is the first message in the conversation
+                    if len(conversation_history[session_id]) <= 2:  # First interaction (user message + AI response)
+                        gather = Gather(
+                            input="speech",
+                            action=f"{NGROK_BASE_URL}/ivr/process_input?language={detected_language}",
+                            method="POST",
+                            language=detected_language,
+                            timeout=5
+                        )
+                        
+                        if detected_language == "hi-IN":
+                            gather.say("कृपया अपना प्रश्न पूछें।", language="hi-IN")
+                        else:
+                            gather.say("Please ask your question.", language="en-IN")
+                            
+                        resp.append(gather)
+                    else:
+                        # For follow-up questions, just end with the response
+                        resp.say("Lexa का उपयोग करने के लिए धन्यवाद। अलविदा!", language="hi-IN") if detected_language == "hi-IN" else resp.say("Thank you for using Lexa. Goodbye!", language="en-IN")
+                    return Response(content=str(resp), media_type="application/xml")
+                
+        except Exception as e:
+            print("❌ Deepgram STT processing failed:", e)
+            # Fall through to Twilio STT if available
+            if 'SpeechResult' in form and form['SpeechResult']:
+                transcript = form['SpeechResult']
+                print("🔄 Falling back to Twilio transcript:", transcript)
+            else:
+                # No fallback available, return error
+                if language == "hi-IN":
+                    resp.say("माफ़ कीजिए, कुछ गलत हो गया। कृपया पुनः प्रयास करें।", language="hi-IN")
+                else:
+                    resp.say("Sorry, something went wrong. Please try again.", language="en-IN")
+                return Response(content=str(resp), media_type="application/xml")
 
-    # Step 2: If audio URL is available (fallback option)
+    # Step 2: Fallback to Twilio STT if no audio URL is available
     elif audio_url:
         print("🔗 Downloading audio from:", audio_url)
         import httpx
@@ -168,17 +266,6 @@ async def process_input(request: Request):
         transcript = transcript_data.get("transcript")
         language = transcript_data.get("language", language)
 
-        if transcript:
-            # Add user message to history
-            conversation_history[session_id].append((now, "user", transcript))
-            # Pass history to LLM
-            history = conversation_history[session_id]
-            gemini = GeminiChain(session_id)
-            gemini_result = gemini.ask(transcript, history=history)
-            response_text = gemini_result["response"]
-            # Add agent response to history
-            conversation_history[session_id].append((now, "agent", response_text))
-
         if not transcript:
             if language == "hi-IN":
                 resp.say("माफ़ कीजिए, मैं समझ नहीं पाया। फिर से प्रयास करें।", language="hi-IN")
@@ -198,7 +285,11 @@ async def process_input(request: Request):
             resp.append(gather)
             return Response(content=str(resp), media_type="application/xml")
 
+        # If we have a valid transcript
         print("✅ Transcript from STT:", transcript)
+
+        # Add user message to history
+        conversation_history[session_id].append((now, "user", transcript))
 
         if detect_human_request(transcript):
             resp.redirect("/fallback/human", method="POST")
@@ -207,6 +298,7 @@ async def process_input(request: Request):
         gemini = GeminiChain(session_id)
         gemini_result = gemini.ask(transcript, history=conversation_history[session_id])
         response_text = gemini_result["response"]
+        print("🤖 Gemini Response:", response_text)
 
         # Add agent response to history
         conversation_history[session_id].append((now, "agent", response_text))
@@ -214,19 +306,22 @@ async def process_input(request: Request):
         audio_url = synthesize_speech(response_text, lang=language)
         resp.play(audio_url)
 
-        # Wait for follow-up (preserve language)
-        gather = Gather(
-            input="speech",
-            action=f"{NGROK_BASE_URL}/ivr/process_input?language={language}",
-            method="POST",
-            language=language,
-            timeout=5
-        )
-        if language == "hi-IN":
-            gather.say("कृपया अपना प्रश्न पूछें।", language="hi-IN")
-        else:
-            gather.say("Please ask your question.", language="en-IN")
-        resp.append(gather)
+        # Only show the initial prompt if this is the first message in the conversation
+        if len(conversation_history[session_id]) <= 2:  # First interaction (user message + AI response)
+            gather = Gather(
+                input="speech",
+                action=f"{NGROK_BASE_URL}/ivr/process_input?language={language}",
+                method="POST",
+                language=language,
+                timeout=5
+            )
+            if language == "hi-IN":
+                gather.say("कृपया अपना प्रश्न पूछें।", language="hi-IN")
+            else:
+                gather.say("Please ask your question.", language="en-IN")
+            resp.append(gather)
+        
+        # Add closing message
         if language == "hi-IN":
             resp.say("कॉल करने के लिए धन्यवाद। अलविदा!", language="hi-IN")
         else:

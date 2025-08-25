@@ -1,6 +1,7 @@
 fastapi
 uvicorn
 langchain
+google-generativeai
 google-cloud-speech
 google-cloud-storage
 google-cloud-bigquery
@@ -13,5 +14,5 @@ twilio
 firebase-admin
 pydantic
 httpx
-faster-whisper
-torch
+deepgram-sdk>=3.0.0
+langid

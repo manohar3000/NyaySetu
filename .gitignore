@@ -1,1 +1,40 @@
 my_agent_data.db
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+.env
+.env.*
+*.env
+*.log
+
+# Python packaging/build
+build/
+dist/
+*.egg-info/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.cache/
+
+# Editors/OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Docker / volumes
+postgres_data/
+docker-data/
+
+# App data
+uploads/
+backend/uploads/
+IVR/audio/

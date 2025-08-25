@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { format, addDays, isBefore, isAfter, parseISO, formatISO } from 'date-fns';
 import { Calendar, Clock, Clock3, X, Check, Loader2, CalendarDays } from 'lucide-react';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { appointmentApi } from '../../services/api';
 
 interface TimeSlot {
   start_time: string;
@@ -47,22 +48,11 @@ const AppointmentScheduler: React.FC = () => {
   const fetchUserAppointments = async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8000/api/appointments/my-appointments', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch appointments');
-      }
-
-      const data = await response.json();
+      const data = await appointmentApi.getMyAppointments();
       setAppointments(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching appointments:', error);
-      toast.error('Failed to load appointments');
+      toast.error(error.message || 'Failed to load appointments');
     } finally {
       setIsLoading(false);
     }
@@ -86,31 +76,16 @@ const AppointmentScheduler: React.FC = () => {
 
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('token');
       
-      const response = await fetch('http://localhost:8000/api/appointments/suggest-slots', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          user_id: 'current-user-id', // This would come from auth context in a real app
-          title: formData.title,
-          description: formData.description,
-          preferred_date: formData.preferredDate,
-          preferred_time: formData.preferredTime,
-          duration_minutes: parseInt(formData.duration.toString(), 10),
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-        }),
+      const slots = await appointmentApi.suggestSlots({
+        title: formData.title,
+        description: formData.description,
+        preferred_date: formData.preferredDate,
+        preferred_time: formData.preferredTime,
+        duration_minutes: parseInt(formData.duration.toString(), 10),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Failed to find available slots');
-      }
-
-      const slots = await response.json();
+      
       setTimeSlots(slots);
       setStep('slots');
     } catch (error: any) {
@@ -126,29 +101,15 @@ const AppointmentScheduler: React.FC = () => {
 
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('token');
       
-      const response = await fetch('http://localhost:8000/api/appointments/book', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          title: formData.title,
-          description: formData.description,
-          start_time: selectedSlot.start_time,
-          end_time: selectedSlot.end_time,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-        }),
+      const appointment = await appointmentApi.bookAppointment({
+        title: formData.title,
+        description: formData.description,
+        start_time: selectedSlot.start_time,
+        end_time: selectedSlot.end_time,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Failed to book appointment');
-      }
-
-      const appointment = await response.json();
+      
       setAppointments(prev => [appointment, ...prev]);
       setStep('confirmation');
       toast.success('Appointment booked successfully!');
@@ -167,19 +128,8 @@ const AppointmentScheduler: React.FC = () => {
 
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('token');
       
-      const response = await fetch(`http://localhost:8000/api/appointments/${appointmentId}/cancel`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Failed to cancel appointment');
-      }
+      await appointmentApi.cancelAppointment(appointmentId);
 
       // Update the appointments list
       setAppointments(prev => 
