@@ -47,6 +47,11 @@ This system is specifically designed to bridge the legal knowledge gap for local
 - **📱 Accessible by Phone:** Users can easily call a dedicated number to interact with the AI assistant in their language of choice.
 - **💡 Simple and Intuitive:** Designed for ease of use, making legal guidance straightforward for people in both urban and rural areas.
 
+### 🤝 **Portia Labs AI (Optional)**
+- Agentic workflows for research, ingestion, triage, and assistants
+- Runs plans using your existing Gemini key via Portia SDK
+- Optional endpoints: `/portia/chat`, `/portia/rag/run-plan`, `/portia/appointments/triage`, `/portia/evidence/assistant`, `/portia/compliance/check`
+
 ### 📄 **Intelligent Document Processing**
 - **📊 AI Summarization**: Extract key insights from legal documents
 - **🔍 Legal Analysis**: Understand complex contracts and agreements
@@ -287,6 +292,15 @@ POST /ivr/initiate_call    # Handle incoming calls
 POST /ivr/language_select  # Language selection
 ```
 
+#### 🤝 Portia (Optional)
+```bash
+POST /portia/chat                      # Separate Portia-powered chatbot
+POST /portia/rag/run-plan              # Crawl/ingest legal sources → upsert to Qdrant
+POST /portia/appointments/triage       # Parse needs → suggest specialization/slots
+POST /portia/evidence/assistant        # Evidence checklist and next steps
+POST /portia/compliance/check          # Compliance audit for provided text
+```
+
 ---
 
 ## 🔧 **Configuration**
@@ -296,6 +310,10 @@ POST /ivr/language_select  # Language selection
 ```bash
 # Google AI Configuration
 GOOGLE_API_KEY=your_google_gemini_api_key
+
+# Portia (Optional)
+PORTIA_ENABLED=true
+PORTIA_DEFAULT_MODEL=gemini-2.5-flash
 
 # Database Configuration
 DATABASE_URL=postgresql://postgres:postgres@db:5432/law_ai
